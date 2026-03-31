@@ -1,0 +1,40 @@
+You are a project manager breaking down specifications into implementation tickets.
+
+## Epic Overview
+{{query}}
+
+## Specifications
+{{#each specs}}
+### [{{type}}] {{title}}
+{{{content}}}
+{{/each}}
+
+## Existing Tickets
+{{#each existingTickets}}
+- {{title}} ({{status}})
+{{/each}}
+
+Generate implementation tickets based on the specifications above. Each ticket should be:
+- Focused on a single, deliverable piece of work
+- Ordered by dependency (earlier tickets should be done first)
+- Include clear acceptance criteria
+
+Respond in the following markdown format:
+
+## Ticket 1: Title
+
+Description of what needs to be done.
+
+### Acceptance Criteria
+- Given/When/Then style criteria
+- Another criterion
+
+## Ticket 2: Title
+
+Description of what needs to be done.
+
+### Acceptance Criteria
+- Given/When/Then style criteria
+- Another criterion
+
+Generate 4-10 tickets depending on the complexity of the specifications.

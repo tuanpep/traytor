@@ -1,10 +1,14 @@
+import path from 'node:path';
 import { ConfigLoader } from '../config/loader.js';
 import { TaskRepository } from '../data/repositories/task.repository.js';
 import { TaskService } from '../services/task.service.js';
 import { PlanGenerator } from '../services/plan-generator.js';
+import { PhaseGenerator } from '../services/phase-generator.js';
+import { ReviewGenerator } from '../services/review-generator.js';
 import { AgentService } from '../services/agent-service.js';
 import { TemplateEngine } from '../services/template-engine.js';
 import { LLMService } from '../integrations/llm/llm-service.js';
+import { MCPClient } from '../integrations/mcp/mcp-client.js';
 import { Verifier } from '../core/verifier.js';
 import type { Config } from '../config/schema.js';
 
@@ -13,7 +17,10 @@ export interface AppContext {
   configLoader: ConfigLoader;
   config: Config;
   llmService: LLMService;
+  mcpClient: MCPClient;
   planGenerator: PlanGenerator;
+  phaseGenerator: PhaseGenerator;
+  reviewGenerator: ReviewGenerator;
   templateEngine: TemplateEngine;
   agentService: AgentService;
   verifier: Verifier;
@@ -25,12 +32,21 @@ export async function bootstrap(workingDir = process.cwd()): Promise<AppContext>
 
   const taskRepository = new TaskRepository(config.dataDir);
   const llmService = new LLMService(config);
-  const templateEngine = new TemplateEngine();
+  const mcpClient = new MCPClient();
+
+  // Resolve custom template directory from config or project .sdd-tool/templates
+  const customTemplateDir = config.templates.customDir
+    ?? path.join(workingDir, '.sdd-tool', 'templates');
+
+  const templateEngine = new TemplateEngine(customTemplateDir);
   const planGenerator = new PlanGenerator(llmService, templateEngine, workingDir);
+  const phaseGenerator = new PhaseGenerator(llmService, templateEngine, workingDir);
+  const reviewGenerator = new ReviewGenerator(llmService, workingDir);
   const agentService = new AgentService(config);
   const verifier = new Verifier(llmService, workingDir);
 
   const taskService = new TaskService(taskRepository, planGenerator);
+  taskService.setPhaseGenerator(phaseGenerator);
 
-  return { taskService, configLoader, config, llmService, planGenerator, templateEngine, agentService, verifier };
+  return { taskService, configLoader, config, llmService, mcpClient, planGenerator, phaseGenerator, reviewGenerator, templateEngine, agentService, verifier };
 }

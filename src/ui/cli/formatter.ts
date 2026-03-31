@@ -1,7 +1,10 @@
 import chalk from 'chalk';
 import type { Plan } from '../../models/plan.js';
 import type { Task } from '../../models/task.js';
+import type { Phase, PhaseStatus } from '../../models/phase.js';
 import type { Verification, VerificationComment, VerificationCategory } from '../../models/verification.js';
+import type { Review, ReviewComment, ReviewCategory, ReviewSeverity } from '../../models/review.js';
+import type { Epic, Spec, Ticket, TicketStatus, SpecType } from '../../models/epic.js';
 
 export function formatTask(task: Task): string {
   const statusColor =
@@ -191,6 +194,263 @@ export function formatVerificationSummary(verification: Verification): string {
     lines.push(chalk.green.bold('\nResult: APPROVED'));
   } else {
     lines.push(chalk.red.bold('\nResult: NEEDS_CHANGES'));
+  }
+
+  return lines.join('\n');
+}
+
+// ─── Phase Formatters ──────────────────────────────────────────────────────
+
+const PHASE_STATUS_COLORS: Record<PhaseStatus, typeof chalk.green> = {
+  pending: chalk.gray,
+  in_progress: chalk.yellow,
+  completed: chalk.green,
+  blocked: chalk.red,
+};
+
+const PHASE_STATUS_ICONS: Record<PhaseStatus, string> = {
+  pending: 'o',
+  in_progress: '>',
+  completed: 'v',
+  blocked: 'x',
+};
+
+export function formatPhase(phase: Phase): string {
+  const color = PHASE_STATUS_COLORS[phase.status];
+  const icon = PHASE_STATUS_ICONS[phase.status];
+
+  const lines: string[] = [];
+  lines.push(`${color(icon)} ${chalk.bold(`Phase ${phase.order}: ${phase.name}`)} ${color(`[${phase.status}]`)}`);
+  lines.push(chalk.dim(`  ID: ${phase.id}`));
+
+  if (phase.description) {
+    const descLines = phase.description.split('\n').slice(0, 4);
+    for (const line of descLines) {
+      lines.push(chalk.dim(`  ${line}`));
+    }
+    if (phase.description.split('\n').length > 4) {
+      lines.push(chalk.dim('  ...'));
+    }
+  }
+
+  if (phase.plan) {
+    lines.push(chalk.blue(`  Plan: ${phase.plan.id} (${phase.plan.steps.length} steps)`));
+  }
+
+  if (phase.verification) {
+    const critCount = phase.verification.comments.filter((c) => c.category === 'critical').length;
+    const majCount = phase.verification.comments.filter((c) => c.category === 'major').length;
+    if (critCount === 0 && majCount === 0) {
+      lines.push(chalk.green('  Verification: APPROVED'));
+    } else {
+      lines.push(chalk.red(`  Verification: NEEDS_CHANGES (${critCount} critical, ${majCount} major)`));
+    }
+  }
+
+  return lines.join('\n');
+}
+
+export function formatPhases(phases: Phase[]): string {
+  const lines: string[] = [];
+
+  lines.push(chalk.bold.cyan(`Phases (${phases.length}):`));
+  lines.push('');
+
+  for (const phase of phases) {
+    lines.push(formatPhase(phase));
+    lines.push('');
+  }
+
+  // Summary
+  const completed = phases.filter((p) => p.status === 'completed').length;
+  const inProgress = phases.filter((p) => p.status === 'in_progress').length;
+  const pending = phases.filter((p) => p.status === 'pending').length;
+  const blocked = phases.filter((p) => p.status === 'blocked').length;
+
+  lines.push(chalk.dim(`Progress: ${completed}/${phases.length} completed, ${inProgress} in progress, ${pending} pending, ${blocked} blocked`));
+
+  return lines.join('\n');
+}
+
+// ─── Review Formatters ────────────────────────────────────────────────────
+
+const REVIEW_CATEGORY_COLORS: Record<ReviewCategory, typeof chalk.red> = {
+  bug: chalk.red,
+  performance: chalk.yellow,
+  security: chalk.magenta,
+  clarity: chalk.blue,
+};
+
+const REVIEW_CATEGORY_ICONS: Record<ReviewCategory, string> = {
+  bug: 'B',
+  performance: 'P',
+  security: 'S',
+  clarity: 'C',
+};
+
+const REVIEW_SEVERITY_COLORS: Record<ReviewSeverity, typeof chalk.red> = {
+  critical: chalk.red.bold,
+  major: chalk.yellow,
+  minor: chalk.gray,
+};
+
+export function formatReview(review: Review): string {
+  if (review.comments.length === 0) {
+    return chalk.green('No issues found. Code review passed.');
+  }
+
+  const lines: string[] = [];
+
+  // Group comments by category
+  const grouped = new Map<ReviewCategory, ReviewComment[]>();
+  for (const comment of review.comments) {
+    const existing = grouped.get(comment.category) || [];
+    existing.push(comment);
+    grouped.set(comment.category, existing);
+  }
+
+  // Display in priority order: security, bug, performance, clarity
+  const order: ReviewCategory[] = ['security', 'bug', 'performance', 'clarity'];
+  for (const category of order) {
+    const comments = grouped.get(category);
+    if (!comments || comments.length === 0) continue;
+
+    const color = REVIEW_CATEGORY_COLORS[category];
+    const icon = REVIEW_CATEGORY_ICONS[category];
+    lines.push(color.bold(`${icon} ${category.toUpperCase()} (${comments.length})`));
+    lines.push('');
+
+    for (const comment of comments) {
+      const severityColor = REVIEW_SEVERITY_COLORS[comment.severity];
+      const location = comment.file
+        ? comment.line
+          ? `${chalk.cyan(comment.file)}:${chalk.dim(String(comment.line))}`
+          : chalk.cyan(comment.file)
+        : '';
+      lines.push(`  ${color(icon)} [${severityColor(comment.severity.toUpperCase())}] ${comment.message}`);
+      if (location) {
+        lines.push(chalk.dim(`    Location: ${location}`));
+      }
+      if (comment.suggestion) {
+        lines.push(chalk.dim(`    Suggestion: ${comment.suggestion}`));
+      }
+      lines.push('');
+    }
+  }
+
+  return lines.join('\n');
+}
+
+export function formatReviewSummary(review: Review): string {
+  const lines: string[] = [];
+  lines.push(chalk.bold('Code Review Summary'));
+  lines.push(chalk.dim(`Query: ${review.query}`));
+  lines.push(chalk.dim(`Scope: ${review.scope}`));
+  lines.push(chalk.dim(`Files: ${review.files.length}`));
+  lines.push(chalk.dim(`Time: ${review.timestamp}`));
+  lines.push('');
+
+  // Category counts
+  const { byCategory, bySeverity, overallAssessment, keyFindings } = review.summary;
+  const catParts: string[] = [];
+  for (const [cat, count] of Object.entries(byCategory)) {
+    if (count > 0) {
+      catParts.push(`${REVIEW_CATEGORY_COLORS[cat as ReviewCategory](`${count} ${cat}`)}`);
+    }
+  }
+  if (catParts.length === 0) catParts.push(chalk.green('0 findings'));
+  lines.push(`Findings: ${catParts.join(', ')}`);
+
+  // Severity counts
+  const sevParts: string[] = [];
+  for (const [sev, count] of Object.entries(bySeverity)) {
+    if (count > 0) {
+      sevParts.push(`${REVIEW_SEVERITY_COLORS[sev as ReviewSeverity](`${count} ${sev}`)}`);
+    }
+  }
+  if (sevParts.length > 0) {
+    lines.push(`Severity: ${sevParts.join(', ')}`);
+  }
+
+  // Overall assessment
+  const assessmentColor =
+    overallAssessment === 'APPROVED' ? chalk.green.bold :
+    overallAssessment === 'HAS_CONCERNS' ? chalk.yellow.bold :
+    chalk.red.bold;
+  lines.push(assessmentColor(`\nResult: ${overallAssessment}`));
+
+  // Key findings
+  if (keyFindings.length > 0) {
+    lines.push('');
+    lines.push(chalk.bold('Key Findings:'));
+    for (const finding of keyFindings) {
+      lines.push(chalk.dim(`  - ${finding}`));
+    }
+  }
+
+  return lines.join('\n');
+}
+
+export function formatReviewMarkdown(review: Review): string {
+  const lines: string[] = [];
+
+  lines.push(`# Code Review: ${review.query}`);
+  lines.push('');
+  lines.push(`- **Scope:** ${review.scope}`);
+  lines.push(`- **Files Reviewed:** ${review.files.length}`);
+  lines.push(`- **Time:** ${review.timestamp}`);
+  lines.push('');
+
+  // Summary
+  lines.push('## Summary');
+  lines.push('');
+  lines.push(`- **Total Findings:** ${review.summary.totalComments}`);
+  for (const [cat, count] of Object.entries(review.summary.byCategory)) {
+    if (count > 0) lines.push(`- **${cat.charAt(0).toUpperCase() + cat.slice(1)}:** ${count}`);
+  }
+  lines.push(`- **Result:** ${review.summary.overallAssessment}`);
+  lines.push('');
+
+  // Key findings
+  if (review.summary.keyFindings.length > 0) {
+    lines.push('### Key Findings');
+    lines.push('');
+    for (const finding of review.summary.keyFindings) {
+      lines.push(`- ${finding}`);
+    }
+    lines.push('');
+  }
+
+  // Detailed findings
+  lines.push('## Detailed Findings');
+  lines.push('');
+
+  const grouped = new Map<ReviewCategory, ReviewComment[]>();
+  for (const comment of review.comments) {
+    const existing = grouped.get(comment.category) || [];
+    existing.push(comment);
+    grouped.set(comment.category, existing);
+  }
+
+  const order: ReviewCategory[] = ['security', 'bug', 'performance', 'clarity'];
+  for (const category of order) {
+    const comments = grouped.get(category);
+    if (!comments || comments.length === 0) continue;
+
+    lines.push(`### ${category.charAt(0).toUpperCase() + category.slice(1)} (${comments.length})`);
+    lines.push('');
+
+    for (const comment of comments) {
+      lines.push(`- **[${comment.severity.toUpperCase()}]** ${comment.message}`);
+      if (comment.file) {
+        const loc = comment.line ? `${comment.file}:${comment.line}` : comment.file;
+        lines.push(`  - File: \`${loc}\``);
+      }
+      if (comment.suggestion) {
+        lines.push(`  - Suggestion: ${comment.suggestion}`);
+      }
+    }
+    lines.push('');
   }
 
   return lines.join('\n');

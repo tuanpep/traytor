@@ -12,7 +12,13 @@ export const DEFAULT_CONFIG: Config = {
     maxTokens: 4096,
     temperature: 0,
   },
+  modelProfiles: {},
+  defaultAgent: undefined,
   agents: [],
+  templates: {},
+  mcp: {
+    servers: [],
+  },
   dataDir: '~/.sdd-tool/data',
   logLevel: 'info',
   verification: {

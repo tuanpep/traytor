@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn, type ChildProcess, type SpawnOptions } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -18,6 +18,10 @@ export interface AgentExecutionOptions {
   timeout?: number;
   /** Extra environment variables to pass to the agent */
   extraEnv?: Record<string, string>;
+  /** Specific agent name to use (overrides defaultAgent config) */
+  agentName?: string;
+  /** Custom template name to use for rendering the prompt */
+  templateName?: string;
 }
 
 export interface AgentExecutionResult {
@@ -34,6 +38,7 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
   name: 'claude-code',
   command: 'claude',
   args: ['--dangerously-skip-permissions'],
+  shell: 'bash',
   env: {},
   timeout: 300_000,
 };
@@ -51,11 +56,11 @@ export class AgentService {
   }
 
   /**
-   * Execute a task by handing off to the configured agent (Claude Code CLI).
+   * Execute a task by handing off to the configured agent.
    * Renders the plan into a prompt, sets environment variables, and spawns the process.
    */
   async execute(task: Task, options: AgentExecutionOptions = {}): Promise<AgentExecutionResult> {
-    const agentConfig = this.resolveAgentConfig();
+    const agentConfig = this.resolveAgentConfig(options.agentName);
     const plan = task.plan;
 
     if (!plan) {
@@ -67,13 +72,14 @@ export class AgentService {
     }
 
     // 1. Render the plan into an agent prompt
-    const prompt = this.renderPlanPrompt(task, plan);
+    const prompt = this.renderPlanPrompt(task, plan, options.templateName);
 
     // 2. Create a temp file with the prompt
     const tmpFile = this.writeTempFile(prompt);
 
-    // 3. Build environment variables
-    const env = this.buildEnvVars(task, prompt, tmpFile, options.extraEnv);
+    // 3. Build environment variables (merge agent-specific env)
+    const mergedExtraEnv = { ...agentConfig.env, ...options.extraEnv };
+    const env = this.buildEnvVars(task, prompt, tmpFile, mergedExtraEnv);
 
     // 4. Spawn the agent process
     const timeout = options.timeout ?? agentConfig.timeout;
@@ -87,8 +93,9 @@ export class AgentService {
 
   /**
    * Render the plan into a structured prompt for the agent.
+   * Supports custom template names.
    */
-  renderPlanPrompt(task: Task, plan: Plan): string {
+  renderPlanPrompt(task: Task, plan: Plan, templateName?: string): string {
     const steps = plan.steps.map((step) => ({
       title: step.title,
       description: step.description,
@@ -106,24 +113,38 @@ ${plan.rationale ? `Rationale: ${plan.rationale}` : ''}
 
 Implement all steps completely. Do not skip any steps.`;
 
-    const prompt = this.templateEngine.renderPlanTemplate({
-      query: task.query,
-      projectDescription: `Implementation plan for: ${task.query}`,
-      projectContext: {
-        totalFiles: 0,
-        totalLines: 0,
-        languages: {},
-      },
-      relevantFiles: steps.flatMap((step) =>
-        step.files.map((file) => ({
-          relativePath: file,
-          language: path.extname(file).slice(1) || 'unknown',
-          symbols: [],
-          content: '',
-        }))
-      ),
-      agentsMd: null,
-    });
+    let prompt: string;
+
+    if (templateName) {
+      // Use a custom template
+      prompt = this.templateEngine.render(templateName, {
+        query: task.query,
+        planMarkdown: systemPrompt,
+        taskId: task.id,
+        timestamp: new Date().toISOString(),
+        basePrompt: systemPrompt,
+      });
+    } else {
+      // Use the default plan template
+      prompt = this.templateEngine.renderPlanTemplate({
+        query: task.query,
+        projectDescription: `Implementation plan for: ${task.query}`,
+        projectContext: {
+          totalFiles: 0,
+          totalLines: 0,
+          languages: {},
+        },
+        relevantFiles: steps.flatMap((step) =>
+          step.files.map((file) => ({
+            relativePath: file,
+            language: path.extname(file).slice(1) || 'unknown',
+            symbols: [],
+            content: '',
+          }))
+        ),
+        agentsMd: null,
+      });
+    }
 
     // Combine system prompt with the rendered template
     return `${systemPrompt}\n\n---\n\n${prompt}`;
@@ -131,8 +152,20 @@ Implement all steps completely. Do not skip any steps.`;
 
   /**
    * Resolve the agent configuration from config or use defaults.
+   * Supports looking up by name (from --agent flag or defaultAgent config).
    */
-  private resolveAgentConfig(): AgentConfig {
+  resolveAgentConfig(agentName?: string): AgentConfig {
+    const name = agentName ?? this.config.defaultAgent;
+
+    if (name) {
+      const found = this.config.agents.find((a) => a.name === name);
+      if (found) {
+        this.logger.debug(`Using agent "${name}" from config`);
+        return found;
+      }
+      this.logger.warn(`Agent "${name}" not found in config, falling back to default`);
+    }
+
     if (this.config.agents.length > 0) {
       // Use the first configured agent
       return this.config.agents[0];
@@ -177,6 +210,7 @@ Implement all steps completely. Do not skip any steps.`;
 
   /**
    * Spawn the agent CLI process and capture output.
+   * Supports bash and powershell shell modes.
    */
   private spawnAgent(
     agentConfig: AgentConfig,
@@ -185,15 +219,24 @@ Implement all steps completely. Do not skip any steps.`;
     cwd?: string
   ): Promise<AgentExecutionResult> {
     return new Promise((resolve, reject) => {
-      this.logger.info(`Spawning agent: ${agentConfig.command} ${agentConfig.args.join(' ')}`);
+      const fullCommand = [agentConfig.command, ...agentConfig.args].join(' ');
+      this.logger.info(`Spawning agent: ${fullCommand} (shell: ${agentConfig.shell})`);
 
       let child: ChildProcess;
       try {
-        child = spawn(agentConfig.command, agentConfig.args, {
+        const spawnOptions: SpawnOptions = {
           env,
           cwd: cwd || process.cwd(),
           stdio: ['pipe', 'pipe', 'pipe'],
-        });
+        };
+
+        if (agentConfig.shell === 'powershell') {
+          spawnOptions.shell = 'powershell.exe';
+        } else {
+          spawnOptions.shell = true;
+        }
+
+        child = spawn(fullCommand, spawnOptions);
       } catch (error) {
         reject(
           new AgentExecutionError(

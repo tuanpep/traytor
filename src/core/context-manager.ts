@@ -5,10 +5,25 @@ import { getLogger } from '../utils/logger.js';
 import { FileAnalyzer, type Codebase } from './file-analyzer.js';
 import type { Task } from '../models/task.js';
 
+// ─── AGENTS.md Parsing Types ────────────────────────────────────────────────
+
+export interface AgentsMdDirective {
+  type: 'instruction' | 'preference' | 'convention' | 'tool' | 'file_pattern';
+  content: string;
+  raw: string;
+}
+
+export interface AgentsMdParseResult {
+  raw: string;
+  path: string | null;
+  directives: AgentsMdDirective[];
+}
+
 export interface ProjectContext {
   workingDirectory: string;
   summary: Codebase['summary'];
   agentsMd: string | null;
+  agentsMdParsed: AgentsMdParseResult | null;
   projectConfig: Record<string, unknown> | null;
   packageJson: Record<string, unknown> | null;
 }
@@ -23,14 +38,18 @@ export class ContextManager {
     const analyzer = new FileAnalyzer(resolvedDir);
     const codebase = await analyzer.analyze();
 
-    const agentsMd = this.findAgentsMd(resolvedDir);
+    const agentsMdResult = this.findAgentsMd(resolvedDir);
     const projectConfig = this.loadProjectConfig(resolvedDir);
     const packageJson = this.loadPackageJson(resolvedDir);
+
+    const agentsMd = agentsMdResult ? agentsMdResult.raw : null;
+    const agentsMdParsed = agentsMdResult ?? null;
 
     return {
       workingDirectory: resolvedDir,
       summary: codebase.summary,
       agentsMd,
+      agentsMdParsed,
       projectConfig,
       packageJson,
     };
@@ -43,21 +62,25 @@ export class ContextManager {
     const analyzer = new FileAnalyzer(resolvedDir);
     const codebase = await analyzer.analyze();
 
-    const agentsMd = this.findAgentsMd(resolvedDir);
+    const agentsMdResult = this.findAgentsMd(resolvedDir);
     const projectConfig = this.loadProjectConfig(resolvedDir);
     const packageJson = this.loadPackageJson(resolvedDir);
+
+    const agentsMd = agentsMdResult ? agentsMdResult.raw : null;
+    const agentsMdParsed = agentsMdResult ?? null;
 
     return {
       workingDirectory: resolvedDir,
       summary: codebase.summary,
       agentsMd,
+      agentsMdParsed,
       projectConfig,
       packageJson,
       codebase,
     };
   }
 
-  findAgentsMd(startDir: string): string | null {
+  findAgentsMd(startDir: string): AgentsMdParseResult | null {
     let current = path.resolve(startDir);
 
     while (true) {
@@ -66,7 +89,12 @@ export class ContextManager {
         if (fs.existsSync(agentsPath)) {
           const content = fs.readFileSync(agentsPath, 'utf-8');
           this.logger.debug(`Found AGENTS.md at ${agentsPath}`);
-          return content;
+          const directives = this.parseAgentsMd(content);
+          return {
+            raw: content,
+            path: agentsPath,
+            directives,
+          };
         }
       } catch {
         // Not readable, continue searching
@@ -80,6 +108,75 @@ export class ContextManager {
       }
       current = parent;
     }
+  }
+
+  /**
+   * Parse AGENTS.md content into structured directives.
+   *
+   * Recognizes common patterns:
+   * - Headings (## / ###) treated as convention sections
+   * - Lines starting with "Always" / "Never" / "Prefer" / "Avoid" treated as preferences
+   * - Lines starting with "Use" / "Run" / "Install" treated as tool instructions
+   * - Glob patterns (*.test.ts, *.spec.*) treated as file patterns
+   */
+  parseAgentsMd(content: string): AgentsMdDirective[] {
+    const directives: AgentsMdDirective[] = [];
+    const lines = content.split('\n');
+    let currentSection = 'general';
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+
+      // Track section headings
+      const headingMatch = trimmed.match(/^#{1,4}\s+(.+)/);
+      if (headingMatch) {
+        currentSection = headingMatch[1].trim().toLowerCase();
+        continue;
+      }
+
+      // Skip empty lines and comments
+      if (!trimmed || trimmed.startsWith('<!--')) continue;
+
+      // Classify directive types
+      // Strip list markers before checking for directive types
+      const strippedContent = trimmed.replace(/^[-*]\s+/, '').replace(/^\d+\.\s+/, '');
+
+      if (strippedContent.match(/^(always|never|prefer|avoid|must|should|don't|do not)\b/i)) {
+        directives.push({
+          type: 'preference',
+          content: trimmed,
+          raw: line,
+        });
+      } else if (strippedContent.match(/^(use|run|install|execute|invoke)\b/i)) {
+        directives.push({
+          type: 'tool',
+          content: trimmed,
+          raw: line,
+        });
+      } else if (trimmed.match(/[*].*\.(?:ts|tsx|js|jsx|py|go|rs|java|vue|svelte|json|yaml|yml|md|css|scss|html|xml|spec|test)[*]?/)) {
+        directives.push({
+          type: 'file_pattern',
+          content: trimmed,
+          raw: line,
+        });
+      } else if (trimmed.match(/^[-*]\s/) || trimmed.match(/^\d+\.\s/)) {
+        // List items under a heading are conventions
+        directives.push({
+          type: currentSection === 'general' ? 'instruction' : 'convention',
+          content: trimmed,
+          raw: line,
+        });
+      } else if (trimmed.length > 10) {
+        // Substantial non-heading text is an instruction
+        directives.push({
+          type: 'instruction',
+          content: trimmed,
+          raw: line,
+        });
+      }
+    }
+
+    return directives;
   }
 
   loadProjectConfig(projectDir: string): Record<string, unknown> | null {

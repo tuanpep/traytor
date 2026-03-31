@@ -4,6 +4,7 @@ import Handlebars from 'handlebars';
 import { fileURLToPath } from 'node:url';
 import { getLogger } from '../utils/logger.js';
 import type { PlanPromptData } from './plan-generator.js';
+import type { PhasePromptData } from './phase-generator.js';
 
 // ─── Template Data Types ───────────────────────────────────────────────────
 
@@ -16,6 +17,34 @@ export interface VerificationPromptData {
     files: string[];
   }[];
   codeChanges: string;
+}
+
+export interface ReviewPromptData {
+  query: string;
+  scopeDescription: string;
+  projectDescription: string;
+  files: {
+    relativePath: string;
+    language: string;
+    lineCount?: number;
+    symbols: { name: string; kind: string }[];
+    content: string;
+  }[];
+  agentsMd?: string | null;
+}
+
+export interface UserQueryPromptData {
+  userQuery: string;
+  basePrompt?: string;
+  agentsMd?: string | null;
+  taskId?: string;
+  timestamp?: string;
+}
+
+export interface TemplateInfo {
+  name: string;
+  source: 'builtin' | 'custom';
+  path: string;
 }
 
 // ─── Template Engine ───────────────────────────────────────────────────────
@@ -92,6 +121,80 @@ export class TemplateEngine {
     const source = this.loadTemplate('verification');
     const template = Handlebars.compile(source);
     return template(data);
+  }
+
+  renderPhasesTemplate(data: PhasePromptData): string {
+    this.registerHelpers();
+    const source = this.loadTemplate('phases');
+    const template = Handlebars.compile(source);
+    return template(data);
+  }
+
+  renderReviewTemplate(data: ReviewPromptData): string {
+    this.registerHelpers();
+    const source = this.loadTemplate('review');
+    const template = Handlebars.compile(source);
+    return template(data);
+  }
+
+  renderUserQueryTemplate(data: UserQueryPromptData): string {
+    this.registerHelpers();
+    const source = this.loadTemplate('user-query');
+    const template = Handlebars.compile(source);
+    return template(data);
+  }
+
+  /**
+   * List all available templates (builtin and custom).
+   */
+  listTemplates(): TemplateInfo[] {
+    const templates: TemplateInfo[] = [];
+
+    // List builtin templates
+    try {
+      const builtinFiles = fs.readdirSync(this.builtinTemplateDir)
+        .filter((f) => f.endsWith('.hbs'));
+      for (const file of builtinFiles) {
+        const name = file.replace('.hbs', '');
+        templates.push({
+          name,
+          source: 'builtin',
+          path: path.join(this.builtinTemplateDir, file),
+        });
+      }
+    } catch {
+      // builtin dir might not exist
+    }
+
+    // List custom templates (may override builtins)
+    if (this.customTemplateDir) {
+      try {
+        const customFiles = fs.readdirSync(this.customTemplateDir)
+          .filter((f) => f.endsWith('.hbs'));
+        for (const file of customFiles) {
+          const name = file.replace('.hbs', '');
+          // Check if it overrides a builtin
+          const existingIndex = templates.findIndex((t) => t.name === name);
+          if (existingIndex >= 0) {
+            templates[existingIndex] = {
+              name,
+              source: 'custom',
+              path: path.join(this.customTemplateDir, file),
+            };
+          } else {
+            templates.push({
+              name,
+              source: 'custom',
+              path: path.join(this.customTemplateDir, file),
+            });
+          }
+        }
+      } catch {
+        // custom dir might not exist
+      }
+    }
+
+    return templates.sort((a, b) => a.name.localeCompare(b.name));
   }
 
   /**

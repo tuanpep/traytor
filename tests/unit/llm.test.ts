@@ -259,7 +259,10 @@ describe('LLMService', () => {
       maxTokens: 4096,
       temperature: 0,
     },
+    modelProfiles: {},
     agents: [],
+    templates: {},
+    mcp: { servers: [] },
     dataDir: '~/.sdd-tool/data',
     logLevel: 'info',
     verification: { autoVerify: false, maxRetries: 3 },
@@ -319,7 +322,7 @@ describe('LLMService', () => {
 
       const result = await service.complete('Test prompt');
       expect(result).toEqual(mockResponse);
-      expect(provider.complete).toHaveBeenCalledWith('Test prompt');
+      expect(provider.complete).toHaveBeenCalledWith('Test prompt', expect.any(Object));
     });
 
     it('passes options through to provider', async () => {
@@ -364,7 +367,7 @@ describe('LLMService', () => {
 
       const result = await service.stream('Prompt', { onChunk, provider: 'anthropic' });
       expect(result).toEqual(mockResponse);
-      expect(provider.stream).toHaveBeenCalledWith('Prompt', { onChunk });
+      expect(provider.stream).toHaveBeenCalledWith('Prompt', expect.objectContaining({ onChunk }));
     });
   });
 });

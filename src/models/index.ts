@@ -29,12 +29,19 @@ export {
 export {
   type PhaseStatus,
   type Phase,
+  type PhaseContextCarryOver,
   createPhaseId,
 } from './phase.js';
 
 export {
+  type ReviewCategory,
+  type ReviewSeverity,
+  type ReviewComment,
+  type ReviewSummary,
+  type ReviewScope,
   type Review,
   createReviewId,
+  createReviewCommentId,
 } from './review.js';
 
 export {
@@ -61,3 +68,26 @@ export {
   type SymbolReference,
   createSymbolReferenceId,
 } from './symbol-reference.js';
+
+export {
+  type GitDiff,
+  type GitDiffFileType,
+  type GitDiffResult,
+  type GitCommitResult,
+  type GitBranchInfo,
+  type GitStatusInfo,
+} from './git.js';
+
+export {
+  type WorkflowDefinition,
+  type WorkflowStepDefinition,
+  type WorkflowState,
+  type WorkflowStepState,
+  type WorkflowStepCommand,
+  type WorkflowStepStatus,
+  type WorkflowStatus,
+  type WorkflowDefinitionFile,
+  createWorkflowId,
+  createWorkflowStepDefId,
+  DEFAULT_WORKFLOW,
+} from './workflow.js';

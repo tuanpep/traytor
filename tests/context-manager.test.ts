@@ -74,25 +74,27 @@ describe('ContextManager', () => {
       createFile('AGENTS.md', '# Agent Configuration\nThis is the agents config.');
       createFile('src/index.ts', 'export const x = 1;');
 
-      const content = contextManager.findAgentsMd(tmpDir);
-      expect(content).not.toBeNull();
-      expect(content).toContain('Agent Configuration');
+      const result = contextManager.findAgentsMd(tmpDir);
+      expect(result).not.toBeNull();
+      expect(result!.raw).toContain('Agent Configuration');
+      expect(result!.path).toContain('AGENTS.md');
+      expect(result!.directives.length).toBeGreaterThan(0);
     });
 
     it('finds AGENTS.md in parent directory', () => {
       createFile('AGENTS.md', '# Root Agents');
       createFile('subdir/src/index.ts', 'export const x = 1;');
 
-      const content = contextManager.findAgentsMd(path.join(tmpDir, 'subdir'));
-      expect(content).not.toBeNull();
-      expect(content).toContain('Root Agents');
+      const result = contextManager.findAgentsMd(path.join(tmpDir, 'subdir'));
+      expect(result).not.toBeNull();
+      expect(result!.raw).toContain('Root Agents');
     });
 
     it('returns null when AGENTS.md does not exist', () => {
       createFile('src/index.ts', 'export const x = 1;');
 
-      const content = contextManager.findAgentsMd(tmpDir);
-      expect(content).toBeNull();
+      const result = contextManager.findAgentsMd(tmpDir);
+      expect(result).toBeNull();
     });
 
     it('prefers closest AGENTS.md to the working directory', () => {
@@ -100,8 +102,29 @@ describe('ContextManager', () => {
       createFile('subdir/AGENTS.md', '# Subdir Agents');
       createFile('subdir/src/index.ts', 'export const x = 1;');
 
-      const content = contextManager.findAgentsMd(path.join(tmpDir, 'subdir'));
-      expect(content).toContain('Subdir Agents');
+      const result = contextManager.findAgentsMd(path.join(tmpDir, 'subdir'));
+      expect(result!.raw).toContain('Subdir Agents');
+    });
+
+    it('parses AGENTS.md directives correctly', () => {
+      createFile('AGENTS.md', `# Project Rules
+- Always use TypeScript strict mode
+- Never use any
+- Prefer const over let
+- Use pnpm for package management
+`);
+
+      const result = contextManager.findAgentsMd(tmpDir);
+      expect(result).not.toBeNull();
+
+      const preferences = result!.directives.filter((d) => d.type === 'preference');
+      expect(preferences.length).toBeGreaterThanOrEqual(2);
+      expect(preferences.some((d) => d.content.includes('TypeScript strict'))).toBe(true);
+      expect(preferences.some((d) => d.content.includes('any'))).toBe(true);
+
+      const tools = result!.directives.filter((d) => d.type === 'tool');
+      expect(tools.length).toBeGreaterThanOrEqual(1);
+      expect(tools.some((d) => d.content.includes('pnpm'))).toBe(true);
     });
   });
 

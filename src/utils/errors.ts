@@ -7,6 +7,16 @@ export enum ErrorCode {
   FILE_NOT_FOUND = 'FILE_NOT_FOUND',
   LLM_API_ERROR = 'LLM_API_ERROR',
   TEMPLATE_ERROR = 'TEMPLATE_ERROR',
+  PHASE_NOT_FOUND = 'PHASE_NOT_FOUND',
+  PHASE_GENERATION_FAILED = 'PHASE_GENERATION_FAILED',
+  EPIC_NOT_FOUND = 'EPIC_NOT_FOUND',
+  SPEC_NOT_FOUND = 'SPEC_NOT_FOUND',
+  TICKET_NOT_FOUND = 'TICKET_NOT_FOUND',
+  EPIC_GENERATION_FAILED = 'EPIC_GENERATION_FAILED',
+  GIT_ERROR = 'GIT_ERROR',
+  WORKFLOW_ERROR = 'WORKFLOW_ERROR',
+  WORKFLOW_NOT_FOUND = 'WORKFLOW_NOT_FOUND',
+  WORKFLOW_STATE_ERROR = 'WORKFLOW_STATE_ERROR',
 }
 
 export class SDDError extends Error {
@@ -84,6 +94,78 @@ export class VerificationError extends SDDError {
   }
 }
 
+export class PhaseNotFoundError extends SDDError {
+  constructor(phaseId: string, taskId: string) {
+    super(
+      ErrorCode.PHASE_NOT_FOUND,
+      `Phase "${phaseId}" not found in task "${taskId}"`,
+      'Use `sdd history` to list all tasks and check phase numbers',
+      { phaseId, taskId }
+    );
+    this.name = 'PhaseNotFoundError';
+  }
+}
+
+export class PhaseGenerationError extends SDDError {
+  constructor(reason: string, details?: Record<string, unknown>) {
+    super(
+      ErrorCode.PHASE_GENERATION_FAILED,
+      `Phase generation failed: ${reason}`,
+      'Check your LLM API key and try again',
+      details
+    );
+    this.name = 'PhaseGenerationError';
+  }
+}
+
+export class EpicNotFoundError extends SDDError {
+  constructor(epicId: string) {
+    super(
+      ErrorCode.EPIC_NOT_FOUND,
+      `Epic "${epicId}" not found`,
+      'Use `sdd history` to list all tasks or `sdd epic list` to list epics',
+      { epicId }
+    );
+    this.name = 'EpicNotFoundError';
+  }
+}
+
+export class SpecNotFoundError extends SDDError {
+  constructor(specId: string, epicId: string) {
+    super(
+      ErrorCode.SPEC_NOT_FOUND,
+      `Spec "${specId}" not found in epic "${epicId}"`,
+      'Use `sdd epic spec list <task-id>` to list all specs in the epic',
+      { specId, epicId }
+    );
+    this.name = 'SpecNotFoundError';
+  }
+}
+
+export class TicketNotFoundError extends SDDError {
+  constructor(ticketId: string, epicId: string) {
+    super(
+      ErrorCode.TICKET_NOT_FOUND,
+      `Ticket "${ticketId}" not found in epic "${epicId}"`,
+      'Use `sdd epic ticket list <task-id>` to list all tickets in the epic',
+      { ticketId, epicId }
+    );
+    this.name = 'TicketNotFoundError';
+  }
+}
+
+export class EpicGenerationError extends SDDError {
+  constructor(reason: string, details?: Record<string, unknown>) {
+    super(
+      ErrorCode.EPIC_GENERATION_FAILED,
+      `Epic generation failed: ${reason}`,
+      'Check your LLM API key and try again',
+      details
+    );
+    this.name = 'EpicGenerationError';
+  }
+}
+
 export class LLMProviderError extends SDDError {
   constructor(provider: string, reason: string, details?: Record<string, unknown>) {
     const isAuthError =
@@ -100,5 +182,53 @@ export class LLMProviderError extends SDDError {
       details
     );
     this.name = 'LLMProviderError';
+  }
+}
+
+export class GitError extends SDDError {
+  constructor(reason: string, detail?: string) {
+    super(
+      ErrorCode.GIT_ERROR,
+      `Git error: ${reason}`,
+      'Ensure you are in a git repository and git is installed',
+      detail ? { detail } : undefined
+    );
+    this.name = 'GitError';
+  }
+}
+
+export class WorkflowError extends SDDError {
+  constructor(reason: string, details?: Record<string, unknown>) {
+    super(
+      ErrorCode.WORKFLOW_ERROR,
+      `Workflow error: ${reason}`,
+      'Check the workflow definition and try again',
+      details
+    );
+    this.name = 'WorkflowError';
+  }
+}
+
+export class WorkflowNotFoundError extends SDDError {
+  constructor(workflowName: string) {
+    super(
+      ErrorCode.WORKFLOW_NOT_FOUND,
+      `Workflow "${workflowName}" not found`,
+      'Use `sdd workflow list` to see available workflows',
+      { workflowName }
+    );
+    this.name = 'WorkflowNotFoundError';
+  }
+}
+
+export class WorkflowStateError extends SDDError {
+  constructor(reason: string, details?: Record<string, unknown>) {
+    super(
+      ErrorCode.WORKFLOW_STATE_ERROR,
+      `Workflow state error: ${reason}`,
+      'Check the workflow state and try again',
+      details
+    );
+    this.name = 'WorkflowStateError';
   }
 }

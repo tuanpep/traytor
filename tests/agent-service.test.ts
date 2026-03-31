@@ -62,7 +62,9 @@ function createMockConfig(overrides?: Partial<Config>): Config {
       maxTokens: 4096,
       temperature: 0,
     },
+    defaultAgent: undefined,
     agents: [],
+    templates: {},
     dataDir: '~/.sdd-tool/data',
     logLevel: 'info',
     verification: {
@@ -120,9 +122,9 @@ describe('AgentService', () => {
 
     expect(mockSpawn).toHaveBeenCalled();
     const spawnArgs = mockSpawn.mock.calls[0];
-    expect(spawnArgs[0]).toBe('claude');
+    expect(spawnArgs[0]).toBe('claude --dangerously-skip-permissions');
 
-    const spawnOptions = spawnArgs[2];
+    const spawnOptions = spawnArgs[1];
     expect(spawnOptions.env.TRAYCER_PROMPT).toContain('Test task');
     expect(spawnOptions.env.TRAYCER_PROMPT_TMP_FILE).toBeDefined();
     expect(spawnOptions.env.TRAYCER_TASK_ID).toBe('task_test_123');
@@ -156,6 +158,7 @@ describe('AgentService', () => {
           name: 'custom-agent',
           command: 'my-agent',
           args: ['--yes'],
+          shell: 'bash',
           env: { CUSTOM_VAR: 'value' },
           timeout: 600_000,
         },
@@ -168,8 +171,11 @@ describe('AgentService', () => {
 
     expect(mockSpawn).toHaveBeenCalled();
     const spawnArgs = mockSpawn.mock.calls[0];
-    expect(spawnArgs[0]).toBe('my-agent');
-    expect(spawnArgs[1]).toEqual(['--yes']);
+    expect(spawnArgs[0]).toBe('my-agent --yes');
+    // shell mode: options are the second argument
+    const spawnOptions = spawnArgs[1];
+    expect(spawnOptions.shell).toBe(true);
+    expect(spawnOptions.env.CUSTOM_VAR).toBe('value');
   });
 
   it('should handle agent process errors', async () => {
