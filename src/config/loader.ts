@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import { ConfigSchema, type Config } from './schema.js';
 import { DEFAULT_CONFIG } from './defaults.js';
-import { SDDError, ErrorCode } from '../utils/errors.js';
+import { TraytorError, ErrorCode } from '../utils/errors.js';
 import { getLogger } from '../utils/logger.js';
 import { SecureStorage } from '../utils/secure-storage.js';
 
@@ -36,48 +36,48 @@ async function readYamlFile(filePath: string): Promise<Record<string, unknown> |
 function applyEnvOverrides(config: Config): Config {
   const result = { ...config };
 
-  if (process.env.SDD_PROVIDER) {
-    result.provider = process.env.SDD_PROVIDER as Config['provider'];
+  if (process.env.TRAYTOR_PROVIDER) {
+    result.provider = process.env.TRAYTOR_PROVIDER as Config['provider'];
   }
 
   if (process.env.ANTHROPIC_API_KEY) {
     result.anthropic = { ...result.anthropic, apiKey: process.env.ANTHROPIC_API_KEY };
   }
-  if (process.env.SDD_ANTHROPIC_MODEL) {
-    result.anthropic = { ...result.anthropic, model: process.env.SDD_ANTHROPIC_MODEL };
+  if (process.env.TRAYTOR_ANTHROPIC_MODEL) {
+    result.anthropic = { ...result.anthropic, model: process.env.TRAYTOR_ANTHROPIC_MODEL };
   }
-  if (process.env.SDD_ANTHROPIC_MAX_TOKENS) {
+  if (process.env.TRAYTOR_ANTHROPIC_MAX_TOKENS) {
     result.anthropic = {
       ...result.anthropic,
-      maxTokens: parseInt(process.env.SDD_ANTHROPIC_MAX_TOKENS, 10),
+      maxTokens: parseInt(process.env.TRAYTOR_ANTHROPIC_MAX_TOKENS, 10),
     };
   }
-  if (process.env.SDD_ANTHROPIC_TEMPERATURE) {
+  if (process.env.TRAYTOR_ANTHROPIC_TEMPERATURE) {
     result.anthropic = {
       ...result.anthropic,
-      temperature: parseFloat(process.env.SDD_ANTHROPIC_TEMPERATURE),
+      temperature: parseFloat(process.env.TRAYTOR_ANTHROPIC_TEMPERATURE),
     };
   }
-  if (process.env.SDD_ANTHROPIC_BASE_URL) {
-    result.anthropic = { ...result.anthropic, baseURL: process.env.SDD_ANTHROPIC_BASE_URL };
+  if (process.env.TRAYTOR_ANTHROPIC_BASE_URL) {
+    result.anthropic = { ...result.anthropic, baseURL: process.env.TRAYTOR_ANTHROPIC_BASE_URL };
   }
 
   if (process.env.OPENAI_API_KEY) {
     result.openai = { ...result.openai, apiKey: process.env.OPENAI_API_KEY };
   }
-  if (process.env.SDD_OPENAI_MODEL) {
-    result.openai = { ...result.openai, model: process.env.SDD_OPENAI_MODEL };
+  if (process.env.TRAYTOR_OPENAI_MODEL) {
+    result.openai = { ...result.openai, model: process.env.TRAYTOR_OPENAI_MODEL };
   }
-  if (process.env.SDD_OPENAI_MAX_TOKENS) {
+  if (process.env.TRAYTOR_OPENAI_MAX_TOKENS) {
     result.openai = {
       ...result.openai,
-      maxTokens: parseInt(process.env.SDD_OPENAI_MAX_TOKENS, 10),
+      maxTokens: parseInt(process.env.TRAYTOR_OPENAI_MAX_TOKENS, 10),
     };
   }
-  if (process.env.SDD_OPENAI_TEMPERATURE) {
+  if (process.env.TRAYTOR_OPENAI_TEMPERATURE) {
     result.openai = {
       ...result.openai,
-      temperature: parseFloat(process.env.SDD_OPENAI_TEMPERATURE),
+      temperature: parseFloat(process.env.TRAYTOR_OPENAI_TEMPERATURE),
     };
   }
   if (process.env.OPENAI_BASE_URL) {
@@ -85,9 +85,9 @@ function applyEnvOverrides(config: Config): Config {
   }
 
   if (
-    process.env.SDD_COMPATIBLE_API_KEY ||
-    process.env.SDD_COMPATIBLE_MODEL ||
-    process.env.SDD_COMPATIBLE_BASE_URL
+    process.env.TRAYTOR_COMPATIBLE_API_KEY ||
+    process.env.TRAYTOR_COMPATIBLE_MODEL ||
+    process.env.TRAYTOR_COMPATIBLE_BASE_URL
   ) {
     const existing = result.openaiCompatible || {
       model: '',
@@ -96,27 +96,27 @@ function applyEnvOverrides(config: Config): Config {
       temperature: 0,
     };
     result.openaiCompatible = { ...existing };
-    if (process.env.SDD_COMPATIBLE_API_KEY) {
-      result.openaiCompatible.apiKey = process.env.SDD_COMPATIBLE_API_KEY;
+    if (process.env.TRAYTOR_COMPATIBLE_API_KEY) {
+      result.openaiCompatible.apiKey = process.env.TRAYTOR_COMPATIBLE_API_KEY;
     }
-    if (process.env.SDD_COMPATIBLE_MODEL) {
-      result.openaiCompatible.model = process.env.SDD_COMPATIBLE_MODEL;
+    if (process.env.TRAYTOR_COMPATIBLE_MODEL) {
+      result.openaiCompatible.model = process.env.TRAYTOR_COMPATIBLE_MODEL;
     }
-    if (process.env.SDD_COMPATIBLE_BASE_URL) {
-      result.openaiCompatible.baseURL = process.env.SDD_COMPATIBLE_BASE_URL;
+    if (process.env.TRAYTOR_COMPATIBLE_BASE_URL) {
+      result.openaiCompatible.baseURL = process.env.TRAYTOR_COMPATIBLE_BASE_URL;
     }
   }
 
-  if (process.env.SDD_DEFAULT_AGENT) {
-    result.defaultAgent = process.env.SDD_DEFAULT_AGENT;
+  if (process.env.TRAYTOR_DEFAULT_AGENT) {
+    result.defaultAgent = process.env.TRAYTOR_DEFAULT_AGENT;
   }
 
-  if (process.env.SDD_LOG_LEVEL) {
-    result.logLevel = process.env.SDD_LOG_LEVEL as Config['logLevel'];
+  if (process.env.TRAYTOR_LOG_LEVEL) {
+    result.logLevel = process.env.TRAYTOR_LOG_LEVEL as Config['logLevel'];
   }
 
-  if (process.env.SDD_DATA_DIR) {
-    result.dataDir = process.env.SDD_DATA_DIR;
+  if (process.env.TRAYTOR_DATA_DIR) {
+    result.dataDir = process.env.TRAYTOR_DATA_DIR;
   }
 
   return result;
@@ -269,7 +269,7 @@ export class ConfigLoader {
       const errors = parsed.error.issues
         .map((i) => `  - ${i.path.join('.')}: ${i.message}`)
         .join('\n');
-      throw new SDDError(
+      throw new TraytorError(
         ErrorCode.CONFIG_INVALID,
         'Configuration validation failed',
         'Check your config files for invalid values',
@@ -284,7 +284,7 @@ export class ConfigLoader {
 
   getConfig(): Config {
     if (!this.config) {
-      throw new SDDError(
+      throw new TraytorError(
         ErrorCode.CONFIG_INVALID,
         'Configuration not loaded. Call load() first.',
         'Ensure ConfigLoader.load() is called before accessing config'

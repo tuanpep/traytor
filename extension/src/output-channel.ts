@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
 
-export class SddOutputChannel {
+export class TraytorOutputChannel {
   private channel: vscode.OutputChannel;
 
   constructor() {
-    this.channel = vscode.window.createOutputChannel('SDD');
+    this.channel = vscode.window.createOutputChannel('Traytor');
   }
 
   appendLine(message: string): void {

@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: { index: 'src/bin/sdd.ts' },
+  entry: { index: 'src/bin/traytor.ts' },
   format: ['esm'],
   target: 'node18',
   platform: 'node',

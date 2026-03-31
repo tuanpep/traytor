@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { exec } from 'child_process';
-import type { SddTaskProvider } from './task-provider.js';
-import type { SddOutputChannel } from './output-channel.js';
+import type { TraytorTaskProvider } from './task-provider.js';
+import type { TraytorOutputChannel } from './output-channel.js';
 
 function getTraytorPath(): string {
   return 'traytor';
@@ -31,8 +31,8 @@ function runTraytorCommandAsync(args: string, timeout = 120000): Promise<string>
 
 export function registerCommands(
   context: vscode.ExtensionContext,
-  taskProvider: SddTaskProvider,
-  outputChannel: SddOutputChannel
+  taskProvider: TraytorTaskProvider,
+  outputChannel: TraytorOutputChannel
 ): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('traytor.createPlan', async () => {
@@ -48,7 +48,7 @@ export function registerCommands(
       outputChannel.appendLine(`Creating plan for: ${query}`);
 
       try {
-        const result = await runSddCommandAsync(`plan "${query.replace(/"/g, '\\"')}"`);
+        const result = await runTraytorCommandAsync(`plan "${query.replace(/"/g, '\\"')}"`);
         outputChannel.appendLine(result);
 
         const doc = await vscode.workspace.openTextDocument({
@@ -97,7 +97,7 @@ export function registerCommands(
       outputChannel.appendLine(`Executing task: ${targetTaskId}`);
 
       try {
-        const result = await runSddCommandAsync(`exec ${targetTaskId}`, 300000);
+        const result = await runTraytorCommandAsync(`exec ${targetTaskId}`, 300000);
         outputChannel.appendLine(result);
         vscode.window.showInformationMessage(`Task ${targetTaskId} executed successfully`);
         taskProvider.refresh();
@@ -146,7 +146,7 @@ export function registerCommands(
       outputChannel.appendLine(`Verifying task: ${targetTaskId}`);
 
       try {
-        const result = await runSddCommandAsync(`verify ${targetTaskId}`);
+        const result = await runTraytorCommandAsync(`verify ${targetTaskId}`);
         outputChannel.appendLine(result);
         vscode.window.showInformationMessage(`Task ${targetTaskId} verified`);
         taskProvider.refresh();
@@ -164,7 +164,7 @@ export function registerCommands(
       outputChannel.appendLine('Loading task history...');
 
       try {
-        const result = await runSddCommandAsync('history');
+        const result = await runTraytorCommandAsync('history');
         outputChannel.appendLine(result);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

@@ -1,21 +1,21 @@
 import { exec } from 'child_process';
 import { EventEmitter, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
-import type { SddOutputChannel } from './output-channel.js';
+import type { TraytorOutputChannel } from './output-channel.js';
 
-export interface SddTask {
+export interface TraytorTask {
   id: string;
   query: string;
   status: 'pending' | 'in_progress' | 'completed' | 'failed';
 }
 
-export class SddTaskProvider {
-  private _onDidChangeTreeData = new EventEmitter<SddTask | undefined>();
+export class TraytorTaskProvider {
+  private _onDidChangeTreeData = new EventEmitter<TraytorTask | undefined>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
-  private tasks: SddTask[] = [];
-  private outputChannel: SddOutputChannel;
+  private tasks: TraytorTask[] = [];
+  private outputChannel: TraytorOutputChannel;
   private extensionUri: Uri;
 
-  constructor(outputChannel: SddOutputChannel, extensionUri: Uri) {
+  constructor(outputChannel: TraytorOutputChannel, extensionUri: Uri) {
     this.outputChannel = outputChannel;
     this.extensionUri = extensionUri;
   }
@@ -55,7 +55,7 @@ export class SddTaskProvider {
     }
   }
 
-  getTreeItem(element: SddTask): TreeItem {
+  getTreeItem(element: TraytorTask): TreeItem {
     const item = new TreeItem(element.query, TreeItemCollapsibleState.None);
 
     item.iconPath = this.getStatusIcon(element.status);
@@ -72,7 +72,7 @@ export class SddTaskProvider {
     return item;
   }
 
-  getChildren(): SddTask[] {
+  getChildren(): TraytorTask[] {
     return this.tasks;
   }
 

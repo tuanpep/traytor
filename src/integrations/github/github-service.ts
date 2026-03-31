@@ -1,7 +1,7 @@
 import { getLogger } from '../../utils/logger.js';
-import { SDDError, ErrorCode } from '../../utils/errors.js';
+import { TraytorError, ErrorCode } from '../../utils/errors.js';
 
-export class GitHubError extends SDDError {
+export class GitHubError extends TraytorError {
   constructor(message: string, suggestion?: string) {
     super(ErrorCode.GIT_ERROR, message, suggestion ?? '');
   }

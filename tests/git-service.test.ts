@@ -10,7 +10,7 @@ describe('GitService', () => {
   let gitService: GitService;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sdd-git-test-'));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'traytor-git-test-'));
     gitService = new GitService(tmpDir);
 
     // Initialize a git repo in tmpDir
@@ -41,7 +41,7 @@ describe('GitService', () => {
     });
 
     it('returns false for a non-git directory', async () => {
-      const nonGitDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sdd-non-git-'));
+      const nonGitDir = fs.mkdtempSync(path.join(os.tmpdir(), 'traytor-non-git-'));
       const service = new GitService(nonGitDir);
       const result = await service.isRepository();
       expect(result).toBe(false);

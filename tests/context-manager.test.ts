@@ -9,7 +9,7 @@ describe('ContextManager', () => {
   let contextManager: ContextManager;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sdd-ctx-test-'));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'traytor-ctx-test-'));
     contextManager = new ContextManager();
   });
 
@@ -129,8 +129,8 @@ describe('ContextManager', () => {
   });
 
   describe('loadProjectConfig()', () => {
-    it('loads .sdd-tool/config.yaml when present', async () => {
-      createFile('.sdd-tool/config.yaml', 'provider: anthropic\nlogLevel: debug');
+    it('loads .traytor/config.yaml when present', async () => {
+      createFile('.traytor/config.yaml', 'provider: anthropic\nlogLevel: debug');
       createFile('src/index.ts', 'export const x = 1;');
 
       const context = await contextManager.gather(tmpDir);

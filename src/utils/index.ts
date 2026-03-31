@@ -1,5 +1,5 @@
 export {
-  SDDError,
+  TraytorError,
   TaskNotFoundError,
   PlanGenerationError,
   AgentExecutionError,

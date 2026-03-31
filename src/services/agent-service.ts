@@ -281,10 +281,10 @@ Implement all steps completely. Do not skip any steps.`;
   ): Record<string, string> {
     const env: Record<string, string> = {
       ...(process.env as Record<string, string>),
-      SDD_PROMPT: prompt,
-      SDD_PROMPT_TMP_FILE: tmpFile,
-      SDD_TASK_ID: task.id,
-      SDD_SYSTEM_PROMPT: `Implement the plan for task ${task.id}: ${task.query}`,
+      TRAYTOR_PROMPT: prompt,
+      TRAYTOR_PROMPT_TMP_FILE: tmpFile,
+      TRAYTOR_TASK_ID: task.id,
+      TRAYTOR_SYSTEM_PROMPT: `Implement the plan for task ${task.id}: ${task.query}`,
     };
 
     if (extraEnv) {
@@ -305,8 +305,8 @@ Implement all steps completely. Do not skip any steps.`;
     cwd?: string
   ): Promise<AgentExecutionResult> {
     return new Promise((resolve, reject) => {
-      const prompt = env.SDD_PROMPT || '';
-      const tmpFile = env.SDD_PROMPT_TMP_FILE || '';
+      const prompt = env.TRAYTOR_PROMPT || '';
+      const tmpFile = env.TRAYTOR_PROMPT_TMP_FILE || '';
       const agentName = agentConfig.name;
 
       // Build command based on agent type

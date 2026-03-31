@@ -22,22 +22,22 @@ describe('ConfigLoader', () => {
 
     const userHome = path.join(root, 'home');
     const projectDir = path.join(root, 'project');
-    await fs.mkdir(path.join(userHome, '.sdd-tool'), { recursive: true });
-    await fs.mkdir(path.join(projectDir, '.sdd-tool'), { recursive: true });
+    await fs.mkdir(path.join(userHome, '.traytor'), { recursive: true });
+    await fs.mkdir(path.join(projectDir, '.traytor'), { recursive: true });
 
     await fs.writeFile(
-      path.join(userHome, '.sdd-tool', 'config.yaml'),
+      path.join(userHome, '.traytor', 'config.yaml'),
       'dataDir: /user-data\nanthropic:\n  model: user-model\n',
       'utf8'
     );
     await fs.writeFile(
-      path.join(projectDir, '.sdd-tool', 'config.yaml'),
+      path.join(projectDir, '.traytor', 'config.yaml'),
       'dataDir: /project-data\n',
       'utf8'
     );
 
     vi.spyOn(os, 'homedir').mockReturnValue(userHome);
-    vi.stubEnv('SDD_DATA_DIR', '/env-data');
+    vi.stubEnv('TRAYTOR_DATA_DIR', '/env-data');
     vi.stubEnv('ANTHROPIC_API_KEY', 'env-key');
 
     const loader = new ConfigLoader();

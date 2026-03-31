@@ -1,5 +1,5 @@
 import type { Config, ModelProfile } from '../../config/schema.js';
-import { SDDError, ErrorCode, LLMProviderError } from '../../utils/errors.js';
+import { TraytorError, ErrorCode, LLMProviderError } from '../../utils/errors.js';
 import { getLogger } from '../../utils/logger.js';
 import { AnthropicProvider } from './anthropic-provider.js';
 import { OpenAIProvider } from './openai-provider.js';
@@ -93,7 +93,7 @@ export class LLMService {
     }
 
     if (this.providers.size === 0) {
-      throw new SDDError(
+      throw new TraytorError(
         ErrorCode.LLM_API_ERROR,
         'No LLM providers could be initialized',
         'Configure at least one provider API key in your config or environment variables'
@@ -148,7 +148,7 @@ export class LLMService {
     const providerName = name ?? this.defaultProviderName;
     const provider = this.providers.get(providerName);
     if (!provider) {
-      throw new SDDError(
+      throw new TraytorError(
         ErrorCode.LLM_API_ERROR,
         `LLM provider "${providerName}" is not available`,
         `Available providers: ${[...this.providers.keys()].join(', ')}`

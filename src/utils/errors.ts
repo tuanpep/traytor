@@ -19,7 +19,7 @@ export enum ErrorCode {
   WORKFLOW_STATE_ERROR = 'WORKFLOW_STATE_ERROR',
 }
 
-export class SDDError extends Error {
+export class TraytorError extends Error {
   readonly code: ErrorCode;
   readonly details?: Record<string, unknown>;
   readonly suggestion: string;
@@ -31,7 +31,7 @@ export class SDDError extends Error {
     details?: Record<string, unknown>
   ) {
     super(message);
-    this.name = 'SDDError';
+    this.name = 'TraytorError';
     this.code = code;
     this.suggestion = suggestion;
     this.details = details;
@@ -46,7 +46,7 @@ export class SDDError extends Error {
   }
 }
 
-export class TaskNotFoundError extends SDDError {
+export class TaskNotFoundError extends TraytorError {
   constructor(taskId: string) {
     super(
       ErrorCode.TASK_NOT_FOUND,
@@ -58,7 +58,7 @@ export class TaskNotFoundError extends SDDError {
   }
 }
 
-export class PlanGenerationError extends SDDError {
+export class PlanGenerationError extends TraytorError {
   constructor(reason: string, details?: Record<string, unknown>) {
     super(
       ErrorCode.PLAN_GENERATION_FAILED,
@@ -70,7 +70,7 @@ export class PlanGenerationError extends SDDError {
   }
 }
 
-export class AgentExecutionError extends SDDError {
+export class AgentExecutionError extends TraytorError {
   constructor(agent: string, reason: string, details?: Record<string, unknown>) {
     super(
       ErrorCode.AGENT_EXECUTION_FAILED,
@@ -82,7 +82,7 @@ export class AgentExecutionError extends SDDError {
   }
 }
 
-export class VerificationError extends SDDError {
+export class VerificationError extends TraytorError {
   constructor(reason: string, details?: Record<string, unknown>) {
     super(
       ErrorCode.VERIFICATION_FAILED,
@@ -94,7 +94,7 @@ export class VerificationError extends SDDError {
   }
 }
 
-export class PhaseNotFoundError extends SDDError {
+export class PhaseNotFoundError extends TraytorError {
   constructor(phaseId: string, taskId: string) {
     super(
       ErrorCode.PHASE_NOT_FOUND,
@@ -106,7 +106,7 @@ export class PhaseNotFoundError extends SDDError {
   }
 }
 
-export class PhaseGenerationError extends SDDError {
+export class PhaseGenerationError extends TraytorError {
   constructor(reason: string, details?: Record<string, unknown>) {
     super(
       ErrorCode.PHASE_GENERATION_FAILED,
@@ -118,7 +118,7 @@ export class PhaseGenerationError extends SDDError {
   }
 }
 
-export class EpicNotFoundError extends SDDError {
+export class EpicNotFoundError extends TraytorError {
   constructor(epicId: string) {
     super(
       ErrorCode.EPIC_NOT_FOUND,
@@ -130,7 +130,7 @@ export class EpicNotFoundError extends SDDError {
   }
 }
 
-export class SpecNotFoundError extends SDDError {
+export class SpecNotFoundError extends TraytorError {
   constructor(specId: string, epicId: string) {
     super(
       ErrorCode.SPEC_NOT_FOUND,
@@ -142,7 +142,7 @@ export class SpecNotFoundError extends SDDError {
   }
 }
 
-export class TicketNotFoundError extends SDDError {
+export class TicketNotFoundError extends TraytorError {
   constructor(ticketId: string, epicId: string) {
     super(
       ErrorCode.TICKET_NOT_FOUND,
@@ -154,7 +154,7 @@ export class TicketNotFoundError extends SDDError {
   }
 }
 
-export class EpicGenerationError extends SDDError {
+export class EpicGenerationError extends TraytorError {
   constructor(reason: string, details?: Record<string, unknown>) {
     super(
       ErrorCode.EPIC_GENERATION_FAILED,
@@ -166,7 +166,7 @@ export class EpicGenerationError extends SDDError {
   }
 }
 
-export class LLMProviderError extends SDDError {
+export class LLMProviderError extends TraytorError {
   constructor(provider: string, reason: string, details?: Record<string, unknown>) {
     const isAuthError =
       reason.toLowerCase().includes('authentication') ||
@@ -185,7 +185,7 @@ export class LLMProviderError extends SDDError {
   }
 }
 
-export class GitError extends SDDError {
+export class GitError extends TraytorError {
   constructor(reason: string, detail?: string) {
     super(
       ErrorCode.GIT_ERROR,
@@ -197,7 +197,7 @@ export class GitError extends SDDError {
   }
 }
 
-export class WorkflowError extends SDDError {
+export class WorkflowError extends TraytorError {
   constructor(reason: string, details?: Record<string, unknown>) {
     super(
       ErrorCode.WORKFLOW_ERROR,
@@ -209,7 +209,7 @@ export class WorkflowError extends SDDError {
   }
 }
 
-export class WorkflowNotFoundError extends SDDError {
+export class WorkflowNotFoundError extends TraytorError {
   constructor(workflowName: string) {
     super(
       ErrorCode.WORKFLOW_NOT_FOUND,
@@ -221,7 +221,7 @@ export class WorkflowNotFoundError extends SDDError {
   }
 }
 
-export class WorkflowStateError extends SDDError {
+export class WorkflowStateError extends TraytorError {
   constructor(reason: string, details?: Record<string, unknown>) {
     super(
       ErrorCode.WORKFLOW_STATE_ERROR,

@@ -16,7 +16,7 @@ describe('TaskService - Phases methods', () => {
   let taskId: string;
 
   beforeEach(async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sdd-test-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'traytor-test-'));
     const repo = new TaskRepository(tempDir);
     taskService = new TaskService(repo);
 

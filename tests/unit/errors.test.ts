@@ -3,19 +3,19 @@ import { describe, expect, it } from 'vitest';
 import {
   AgentExecutionError,
   PlanGenerationError,
-  SDDError,
+  TraytorError,
   TaskNotFoundError,
   VerificationError,
 } from '../../src/utils/errors.js';
 
-describe('SDDError hierarchy', () => {
+describe('TraytorError hierarchy', () => {
   it('creates task not found error with code and details', () => {
     const error = new TaskNotFoundError('task_123');
 
-    expect(error).toBeInstanceOf(SDDError);
+    expect(error).toBeInstanceOf(TraytorError);
     expect(error.code).toBe('TASK_NOT_FOUND');
     expect(error.details).toEqual({ taskId: 'task_123' });
-    expect(error.suggestion).toContain('sdd history');
+    expect(error.suggestion).toContain('traytor history');
   });
 
   it('creates phase-specific errors with actionable metadata', () => {

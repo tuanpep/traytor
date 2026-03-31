@@ -7,7 +7,7 @@ import { createTaskId } from '../models/task.js';
 import {
   TaskNotFoundError,
   PlanGenerationError,
-  SDDError,
+  TraytorError,
   ErrorCode,
   PhaseNotFoundError,
   PhaseGenerationError,
@@ -321,7 +321,7 @@ export class TaskService {
     }
 
     if (!task.phases) {
-      throw new SDDError(
+      throw new TraytorError(
         ErrorCode.TASK_NOT_FOUND,
         `Task "${taskId}" has no phases`,
         'Create phases first using phases:add command'

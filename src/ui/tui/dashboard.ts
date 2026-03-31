@@ -74,7 +74,7 @@ export function renderDashboard(data: DashboardData): string {
 
   // Header
   lines.push('');
-  lines.push(chalk.bold.cyan('  SDD Tool Dashboard'));
+  lines.push(chalk.bold.cyan('  Traytor Dashboard'));
   lines.push(chalk.dim('  ' + '─'.repeat(40)));
   lines.push('');
 

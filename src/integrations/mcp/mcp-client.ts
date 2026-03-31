@@ -1,4 +1,4 @@
-import { SDDError, ErrorCode } from '../../utils/errors.js';
+import { TraytorError, ErrorCode } from '../../utils/errors.js';
 import { getLogger } from '../../utils/logger.js';
 import type { MCPServerConfig, MCPTool, MCPToolResult, MCPListToolsResponse } from './types.js';
 
@@ -56,9 +56,9 @@ export class MCPClient {
       this.connected = true;
     } catch (error) {
       this.connected = false;
-      if (error instanceof SDDError) throw error;
+      if (error instanceof TraytorError) throw error;
       const message = error instanceof Error ? error.message : String(error);
-      throw new SDDError(
+      throw new TraytorError(
         ErrorCode.LLM_API_ERROR,
         `Failed to connect to MCP server "${server.name}": ${message}`,
         'Check the server URL and API key configuration'
@@ -104,9 +104,9 @@ export class MCPClient {
       this.logger.debug(`MCP server "${server.name}" has ${tools.length} tools`);
       return tools;
     } catch (error) {
-      if (error instanceof SDDError) throw error;
+      if (error instanceof TraytorError) throw error;
       const message = error instanceof Error ? error.message : String(error);
-      throw new SDDError(
+      throw new TraytorError(
         ErrorCode.LLM_API_ERROR,
         `Failed to list tools from MCP server "${server.name}": ${message}`,
         'Ensure the MCP server is running and accessible'
@@ -171,9 +171,9 @@ export class MCPClient {
         isError: data.result?.isError,
       };
     } catch (error) {
-      if (error instanceof SDDError) throw error;
+      if (error instanceof TraytorError) throw error;
       const message = error instanceof Error ? error.message : String(error);
-      throw new SDDError(
+      throw new TraytorError(
         ErrorCode.LLM_API_ERROR,
         `Failed to call tool "${name}" on MCP server "${server.name}": ${message}`,
         'Check the tool name and arguments'
@@ -209,7 +209,7 @@ export class MCPClient {
 
   private ensureConnected(serverName: string): void {
     if (!this.connected) {
-      throw new SDDError(
+      throw new TraytorError(
         ErrorCode.LLM_API_ERROR,
         `Not connected to MCP server "${serverName}"`,
         'Call connect() before using MCP tools'

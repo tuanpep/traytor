@@ -84,7 +84,7 @@ export class SecureStorage {
       try {
         // Try using secret-tool if available
         execSync(
-          `echo "${apiKey}" | secret-tool store --label="SDD ${provider} API Key" "${this.serviceName}" "${provider}"`,
+          `echo "${apiKey}" | secret-tool store --label="Traytor ${provider} API Key" "${this.serviceName}" "${provider}"`,
           { stdio: 'pipe' }
         );
         logger.debug(`API key for ${provider} stored in system keyring`);

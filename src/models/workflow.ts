@@ -116,7 +116,7 @@ export const DEFAULT_WORKFLOW: WorkflowDefinition = {
   ],
 };
 
-export const SDD_AGILE_WORKFLOW: WorkflowDefinition = {
+export const TRAYTOR_AGILE_WORKFLOW: WorkflowDefinition = {
   name: 'agile',
   description:
     'Traycer Agile Workflow: Collaborative, spec-driven development with elicitation and structured handoffs',

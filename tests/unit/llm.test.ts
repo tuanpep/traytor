@@ -263,7 +263,7 @@ describe('LLMService', () => {
     agents: [],
     templates: {},
     mcp: { servers: [] },
-    dataDir: '~/.sdd-tool/data',
+    dataDir: '~/.traytor/data',
     logLevel: 'info',
     verification: { autoVerify: false, maxRetries: 3 },
     ...overrides,

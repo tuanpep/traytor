@@ -10,7 +10,7 @@ describe('TemplateEngine', () => {
   let engine: TemplateEngine;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sdd-tmpl-'));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'traytor-tmpl-'));
   });
 
   afterEach(() => {

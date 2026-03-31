@@ -10,7 +10,7 @@ describe('WorkflowEngine', () => {
   let engine: WorkflowEngine;
 
   beforeEach(async () => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sdd-wf-test-'));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'traytor-wf-test-'));
     engine = new WorkflowEngine({ dataDir: tmpDir });
     await engine.initialize();
   });

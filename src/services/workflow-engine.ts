@@ -7,7 +7,7 @@ import { WorkflowError, WorkflowNotFoundError, WorkflowStateError } from '../uti
 import type { GitService } from './git-service.js';
 import {
   DEFAULT_WORKFLOW,
-  SDD_AGILE_WORKFLOW,
+  TRAYTOR_AGILE_WORKFLOW,
   createWorkflowId,
   createWorkflowStepDefId,
   type WorkflowDefinition,
@@ -43,7 +43,7 @@ export class WorkflowEngine {
     );
     this.gitService = options.gitService;
     this.definitions.set(DEFAULT_WORKFLOW.name, DEFAULT_WORKFLOW);
-    this.definitions.set(SDD_AGILE_WORKFLOW.name, SDD_AGILE_WORKFLOW);
+    this.definitions.set(TRAYTOR_AGILE_WORKFLOW.name, TRAYTOR_AGILE_WORKFLOW);
   }
 
   /**

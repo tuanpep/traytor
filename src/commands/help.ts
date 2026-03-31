@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 
 const COMMAND_DOCS: Record<string, string> = {
-  config: `${chalk.bold('traytorconfig <subcommand> [provider] [apiKey]')}
+  config: `${chalk.bold('traytor config <subcommand> [provider] [apiKey]')}
 ${chalk.dim('─────────────────────────────────────────────────')}
 
 Manage configuration and securely store API keys.
@@ -13,23 +13,23 @@ ${chalk.bold('Subcommands:')}
   remove-key <provider>    Remove a stored API key
 
 ${chalk.bold('Examples:')}
-  traytorconfig show
-  traytorconfig set-key anthropic sk-ant-...
-  traytorconfig get-key openai
-  traytorconfig remove-key anthropic
+  traytor config show
+  traytor config set-key anthropic sk-ant-...
+  traytor config get-key openai
+  traytor config remove-key anthropic
 
 ${chalk.bold('Note:')}
   API keys are stored in the system keychain when available
   (macOS Keychain, Linux secret-service). Falls back to encrypted
   file storage at ~/.traytor/keys/ when keychain is unavailable.`,
 
-  plan: `${chalk.bold('traytorplan <query>')}
+  plan: `${chalk.bold('traytor plan <query>')}
 ${chalk.dim('─────────────────────────────────────────────────')}
 
 Generate an implementation plan for a task using AI.
 
 ${chalk.bold('Usage:')}
-  traytorplan "Implement user authentication with JWT"
+  traytor plan "Implement user authentication with JWT"
 
 ${chalk.bold('Options:')}
   -f, --files <files...>   Specific files to include in analysis
@@ -38,9 +38,9 @@ ${chalk.bold('Options:')}
   -v, --verbose            Show verbose output
 
 ${chalk.bold('Examples:')}
-  traytorplan "Add pagination to user list API"
-  traytorplan "Refactor auth module" --files src/auth.ts src/middleware.ts
-  traytorplan "Build CRUD API" --output markdown --output-file plan.md
+  traytor plan "Add pagination to user list API"
+  traytor plan "Refactor auth module" --files src/auth.ts src/middleware.ts
+  traytor plan "Build CRUD API" --output markdown --output-file plan.md
 
 ${chalk.bold('How it works:')}
   1. Analyzes relevant files in the project
@@ -48,13 +48,13 @@ ${chalk.bold('How it works:')}
   3. Generates a structured plan with steps, files, and rationale
   4. Saves the task for later execution and verification`,
 
-  phases: `${chalk.bold('traytorphases <query>')}
+  phases: `${chalk.bold('traytor phases <query>')}
 ${chalk.dim('─────────────────────────────────────────────────')}
 
 Break a complex task into sequential phases with dependencies.
 
 ${chalk.bold('Usage:')}
-  traytorphases "Build a complete REST API"
+  traytor phases "Build a complete REST API"
 
 ${chalk.bold('Options:')}
   -f, --files <files...>   Specific files to include in analysis
@@ -62,36 +62,36 @@ ${chalk.bold('Options:')}
   -v, --verbose            Show verbose output
 
 ${chalk.bold('Examples:')}
-  traytorphases "Build an e-commerce platform"
-  traytorphases "Migrate database to PostgreSQL" --files src/db/*
+  traytor phases "Build an e-commerce platform"
+  traytor phases "Migrate database to PostgreSQL" --files src/db/*
 
 ${chalk.bold('How it works:')}
   1. Analyzes the project structure and codebase
   2. Generates phases with clear boundaries and dependencies
   3. Each phase gets its own plan for execution
-  4. Execute phases individually with \`traytorexec <task-id> --phase <n>\`
+  4. Execute phases individually with \`traytor exec <task-id> --phase <n>\`
 
 ${chalk.bold('Phase management:')}
-  traytorphases:list <task-id>          List phases for a task
-  traytorphases:add <task-id>           Add a new phase
+  traytor phases:list <task-id>          List phases for a task
+  traytor phases:add <task-id>           Add a new phase
     --name <name>                    Phase name (required)
     --description <desc>             Phase description
     --after <n>                      Insert after phase number
-  traytorphases:insert <task-id>        Insert a phase at a specific position
+  traytor phases:insert <task-id>        Insert a phase at a specific position
     --name <name>                    Phase name (required)
     --insert-after <n>               Insert after this phase
-  traytorphases:reorder <task-id>       Reorder phases
+  traytor phases:reorder <task-id>       Reorder phases
     --from <n> --to <n>              Move phase from position to position
-  traytorphases:delete <task-id>        Delete a phase
+  traytor phases:delete <task-id>        Delete a phase
     --phase <n>                      Phase number to delete`,
 
-  exec: `${chalk.bold('traytorexec <task-id>')}
+  exec: `${chalk.bold('traytor exec <task-id>')}
 ${chalk.dim('─────────────────────────────────────────────────')}
 
 Execute a task with an AI agent.
 
 ${chalk.bold('Usage:')}
-  traytorexec task_abc123
+  traytor exec task_abc123
 
 ${chalk.bold('Options:')}
   --cwd <path>         Working directory for the agent
@@ -102,17 +102,17 @@ ${chalk.bold('Options:')}
   -v, --verbose        Show verbose output
 
 ${chalk.bold('Examples:')}
-  traytorexec task_abc123
-  traytorexec task_abc123 --phase 1
-  traytorexec task_abc123 --agent claude --timeout 600000`,
+  traytor exec task_abc123
+  traytor exec task_abc123 --phase 1
+  traytor exec task_abc123 --agent claude --timeout 600000`,
 
-  verify: `${chalk.bold('traytorverify <task-id>')}
+  verify: `${chalk.bold('traytor verify <task-id>')}
 ${chalk.dim('─────────────────────────────────────────────────')}
 
 Verify a task implementation against its plan.
 
 ${chalk.bold('Usage:')}
-  traytorverify task_abc123
+  traytor verify task_abc123
 
 ${chalk.bold('Options:')}
   --cwd <path>              Working directory to analyze
@@ -137,18 +137,18 @@ ${chalk.bold('Output:')}
     ${chalk.gray('outdated')} - Plan references outdated code
 
 ${chalk.bold('Examples:')}
-  traytorverify task_abc123
-  traytorverify task_abc123 --phase 1
-  traytorverify task_abc123 --fix --agent claude
-  traytorverify task_abc123 --mode reverify`,
+  traytor verify task_abc123
+  traytor verify task_abc123 --phase 1
+  traytor verify task_abc123 --fix --agent claude
+  traytor verify task_abc123 --mode reverify`,
 
-  review: `${chalk.bold('traytorreview <query>')}
+  review: `${chalk.bold('traytor review <query>')}
 ${chalk.dim('─────────────────────────────────────────────────')}
 
 Run an agentic code review with AI.
 
 ${chalk.bold('Usage:')}
-  traytorreview "Focus on security and error handling"
+  traytor review "Focus on security and error handling"
 
 ${chalk.bold('Options:')}
   -f, --files <files...>    Specific files to review
@@ -162,27 +162,27 @@ ${chalk.bold('Options:')}
   -v, --verbose             Show verbose output
 
 ${chalk.bold('Examples:')}
-  traytorreview "Check for security issues" --against main
-  traytorreview "Performance review" --files src/api/*.ts
-  traytorreview --fix task_abc123 --fix-comment-ids rcomment_1,rcomment_2`,
+  traytor review "Check for security issues" --against main
+  traytor review "Performance review" --files src/api/*.ts
+  traytor review --fix task_abc123 --fix-comment-ids rcomment_1,rcomment_2`,
 
-  epic: `${chalk.bold('traytorepic <query>')}
+  epic: `${chalk.bold('traytor epic <query>')}
 ${chalk.dim('─────────────────────────────────────────────────')}
 
 Start an epic with AI elicitation, or manage specs/tickets.
 
 ${chalk.bold('Usage:')}
-  traytorepic "Build an e-commerce platform"
+  traytor epic "Build an e-commerce platform"
 
 ${chalk.bold('Spec management:')}
-  traytorepic --task-id <id> --spec list
-  traytorepic --task-id <id> --spec create --spec-type tech --spec-title "Architecture"
-  traytorepic --task-id <id> --spec edit --spec-id <id> --spec-title "New title"
+  traytor epic --task-id <id> --spec list
+  traytor epic --task-id <id> --spec create --spec-type tech --spec-title "Architecture"
+  traytor epic --task-id <id> --spec edit --spec-id <id> --spec-title "New title"
 
 ${chalk.bold('Ticket management:')}
-  traytorepic --task-id <id> --ticket list
-  traytorepic --task-id <id> --ticket create --ticket-title "User auth"
-  traytorepic --task-id <id> --ticket status --ticket-id <id> --ticket-status in_progress
+  traytor epic --task-id <id> --ticket list
+  traytor epic --task-id <id> --ticket create --ticket-title "User auth"
+  traytor epic --task-id <id> --ticket status --ticket-id <id> --ticket-status in_progress
 
 ${chalk.bold('Options:')}
   --task-id <id>            Task ID of an existing epic
@@ -194,7 +194,7 @@ ${chalk.bold('Options:')}
   -o, --output <format>     Output format: terminal, markdown, json
   -v, --verbose             Show verbose output`,
 
-  workflow: `${chalk.bold('traytorworkflow <subcommand> [name]')}
+  workflow: `${chalk.bold('traytor workflow <subcommand> [name]')}
 ${chalk.dim('─────────────────────────────────────────────────')}
 
 Manage workflows and workflow state.
@@ -209,14 +209,14 @@ ${chalk.bold('Subcommands:')}
   resume <id>              Resume a paused workflow
 
 ${chalk.bold('Examples:')}
-  traytorworkflow list
-  traytorworkflow create dev-flow --steps "Plan,Execute,Verify"
-  traytorworkflow state wf_abc123`,
+  traytor workflow list
+  traytor workflow create dev-flow --steps "Plan,Execute,Verify"
+  traytor workflow state wf_abc123`,
 
-  git: `${chalk.bold('traytorgit <subcommand> [arg]')}
+  git: `${chalk.bold('traytor git <subcommand> [arg]')}
 ${chalk.dim('─────────────────────────────────────────────────')}
 
-Git operations integrated with SDD workflow tracking.
+Git operations integrated with Traytor workflow tracking.
 
 ${chalk.bold('Subcommands:')}
   status                   Show git status
@@ -227,11 +227,11 @@ ${chalk.bold('Options:')}
   --files <files...>       Specific files to commit
 
 ${chalk.bold('Examples:')}
-  traytorgit status
-  traytorgit diff main
-  traytorgit commit "feat: add user authentication" --files src/auth.ts`,
+  traytor git status
+  traytor git diff main
+  traytor git commit "feat: add user authentication" --files src/auth.ts`,
 
-  agent: `${chalk.bold('traytoragent <subcommand> [name]')}
+  agent: `${chalk.bold('traytor agent <subcommand> [name]')}
 ${chalk.dim('─────────────────────────────────────────────────')}
 
 Manage custom CLI agents for task execution.
@@ -251,11 +251,11 @@ ${chalk.bold('Options for add:')}
   --set-default            Set as default agent
 
 ${chalk.bold('Examples:')}
-  traytoragent list
-  traytoragent add claude --command "claude" --args "--dangerously-skip-permissions"
-  traytoragent set-default claude`,
+  traytor agent list
+  traytor agent add claude --command "claude" --args "--dangerously-skip-permissions"
+  traytor agent set-default claude`,
 
-  template: `${chalk.bold('traytortemplate <subcommand> [name]')}
+  template: `${chalk.bold('traytor template <subcommand> [name]')}
 ${chalk.dim('─────────────────────────────────────────────────')}
 
 Manage prompt templates for AI interactions.
@@ -267,17 +267,17 @@ ${chalk.bold('Subcommands:')}
   edit <name>              Edit an existing template
 
 ${chalk.bold('Examples:')}
-  traytortemplate list
-  traytortemplate show plan
-  traytortemplate create my-template --content "Custom prompt..."`,
+  traytor template list
+  traytor template show plan
+  traytor template create my-template --content "Custom prompt..."`,
 
-  history: `${chalk.bold('traytorhistory')}
+  history: `${chalk.bold('traytor history')}
 ${chalk.dim('─────────────────────────────────────────────────')}
 
 View task history with filtering and output options.
 
 ${chalk.bold('Usage:')}
-  traytorhistory
+  traytor history
 
 ${chalk.bold('Options:')}
   -o, --output <format>    Output format: terminal, json (default: terminal)
@@ -286,17 +286,17 @@ ${chalk.bold('Options:')}
   --limit <n>              Limit number of results
 
 ${chalk.bold('Examples:')}
-  traytorhistory
-  traytorhistory --output json
-  traytorhistory --status completed --limit 5`,
+  traytor history
+  traytor history --output json
+  traytor history --status completed --limit 5`,
 
-  yolo: `${chalk.bold('traytoryolo <task-id>')}
+  yolo: `${chalk.bold('traytor yolo <task-id>')}
 ${chalk.dim('─────────────────────────────────────────────────')}
 
 Execute all phases of a task automatically (plan → exec → verify).
 
 ${chalk.bold('Usage:')}
-  traytoryolo task_abc123
+  traytor yolo task_abc123
 
 ${chalk.bold('Options:')}
   --from-phase <n>         Start from phase number
@@ -315,11 +315,11 @@ ${chalk.bold('Options:')}
   -v, --verbose            Show verbose output
 
 ${chalk.bold('Examples:')}
-  traytoryolo task_abc123
-  traytoryolo task_abc123 --from-phase 2 --to-phase 4
-  traytoryolo task_abc123 --dry-run`,
+  traytor yolo task_abc123
+  traytor yolo task_abc123 --from-phase 2 --to-phase 4
+  traytor yolo task_abc123 --dry-run`,
 
-  'ticket-assist': `${chalk.bold('traytorticket-assist <subcommand> <owner> <repo>')}
+  'ticket-assist': `${chalk.bold('traytor ticket-assist <subcommand> <owner> <repo>')}
 ${chalk.dim('─────────────────────────────────────────────────')}
 
 GitHub issue integration - list, plan, and track tickets.
@@ -334,14 +334,14 @@ ${chalk.bold('Options:')}
   --label <label>          Filter issues by label
 
 ${chalk.bold('Examples:')}
-  traytorticket-assist list myorg myrepo
-  traytorticket-assist plan myorg myrepo --issue-number 42
-  traytorticket-assist show myorg myrepo --issue-number 42
+  traytor ticket-assist list myorg myrepo
+  traytor ticket-assist plan myorg myrepo --issue-number 42
+  traytor ticket-assist show myorg myrepo --issue-number 42
 
 ${chalk.bold('Note:')}
   Set GITHUB_TOKEN environment variable for authentication.`,
 
-  mermaid: `${chalk.bold('traytormermaid <subcommand> [task-id]')}
+  mermaid: `${chalk.bold('traytor mermaid <subcommand> [task-id]')}
 ${chalk.dim('─────────────────────────────────────────────────')}
 
 Generate Mermaid diagrams from tasks, plans, and phases.
@@ -359,22 +359,22 @@ ${chalk.bold('Options:')}
   --input <code>           Mermaid code (for validate)
 
 ${chalk.bold('Examples:')}
-  traytormermaid show task_abc123
-  traytormermaid url task_abc123
-  traytormermaid export task_abc123 --output diagram.mmd
-  traytormermaid validate --input "graph TD; A-->B;"`,
+  traytor mermaid show task_abc123
+  traytor mermaid url task_abc123
+  traytor mermaid export task_abc123 --output diagram.mmd
+  traytor mermaid validate --input "graph TD; A-->B;"`,
 
-  tui: `${chalk.bold('traytortui')}
+  tui: `${chalk.bold('traytor tui')}
 ${chalk.dim('─────────────────────────────────────────────────')}
 
 Launch the interactive terminal UI for task management.
 
 ${chalk.bold('Usage:')}
-  traytortui
+  traytor tui
 
 Provides a visual interface to browse, filter, and manage tasks.`,
 
-  'model-profile': `${chalk.bold('traytormodel-profile <subcommand> [profile]')}
+  'model-profile': `${chalk.bold('traytor model-profile <subcommand> [profile]')}
 ${chalk.dim('─────────────────────────────────────────────────')}
 
 Manage AI model profiles for different task types.
@@ -385,18 +385,18 @@ ${chalk.bold('Subcommands:')}
   set <profile>            Set the active model profile
 
 ${chalk.bold('Examples:')}
-  traytormodel-profile list
-  traytormodel-profile show balanced
-  traytormodel-profile set frontier`,
+  traytor model-profile list
+  traytor model-profile show balanced
+  traytor model-profile set frontier`,
 
-  usage: `${chalk.bold('traytorusage [task-id]')}
+  usage: `${chalk.bold('traytor usage [task-id]')}
 ${chalk.dim('─────────────────────────────────────────────────')}
 
 View token usage statistics for tasks.
 
 ${chalk.bold('Usage:')}
-  traytorusage               Show total usage across all tasks
-  traytorusage task_abc123   Show usage for a specific task
+  traytor usage               Show total usage across all tasks
+  traytor usage task_abc123   Show usage for a specific task
 
 ${chalk.bold('Output:')}
   Shows input tokens, output tokens, total tokens, and estimated cost.`,
@@ -417,7 +417,7 @@ export function runHelpCommand(command?: string): void {
       );
     }
     console.log('');
-    console.log(chalk.dim('Run `traytorhelp <command>` for detailed documentation.'));
+    console.log(chalk.dim('Run `traytor help <command>` for detailed documentation.'));
     console.log('');
     return;
   }
@@ -425,7 +425,7 @@ export function runHelpCommand(command?: string): void {
   const doc = COMMAND_DOCS[command];
   if (!doc) {
     console.error(chalk.red(`Unknown command: ${command}`));
-    console.log(chalk.dim(`Run \`traytorhelp\` to see available commands.`));
+    console.log(chalk.dim(`Run \`traytor help\` to see available commands.`));
     process.exit(1);
   }
 
