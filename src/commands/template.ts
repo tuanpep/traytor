@@ -132,7 +132,7 @@ export async function runTemplateCreate(
 
   if (fs.existsSync(templatePath)) {
     console.error(chalk.red(`Template "${name}" already exists at ${templatePath}`));
-    console.log(chalk.dim(`Use \`sdd template edit ${name}\` to modify it.`));
+    console.log(chalk.dim(`Use \`traytor template edit ${name}\` to modify it.`));
     process.exit(1);
   }
 
@@ -171,7 +171,7 @@ export async function runTemplateEdit(
 
   if (!fs.existsSync(templatePath)) {
     console.error(chalk.red(`Template "${name}" not found.`));
-    console.log(chalk.dim('Use `sdd template create` to create a new template.'));
+    console.log(chalk.dim('Use `traytor template create` to create a new template.'));
     process.exit(1);
   }
 

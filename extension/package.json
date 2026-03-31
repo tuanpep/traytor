@@ -1,7 +1,7 @@
 {
-  "name": "sdd-vscode",
-  "displayName": "SDD - Spec Driven Development",
-  "description": "IDE integration for the SDD spec-driven development CLI tool",
+  "name": "traytor-vscode",
+  "displayName": "Traytor - Spec Driven Development",
+  "description": "IDE integration for the Traytor spec-driven development CLI tool",
   "version": "0.1.0",
   "publisher": "traytor",
   "engines": {
@@ -12,55 +12,55 @@
     "Developer Tools"
   ],
   "activationEvents": [
-    "onCommand:sdd.createPlan",
-    "onCommand:sdd.executeTask",
-    "onCommand:sdd.verifyTask",
-    "onCommand:sdd.showHistory",
-    "onCommand:sdd.refreshTasks"
+    "onCommand:traytor.createPlan",
+    "onCommand:traytor.executeTask",
+    "onCommand:traytor.verifyTask",
+    "onCommand:traytor.showHistory",
+    "onCommand:traytor.refreshTasks"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "sdd.createPlan",
-        "title": "SDD: Create Plan",
-        "category": "SDD"
+        "command": "traytor.createPlan",
+        "title": "Traytor: Create Plan",
+        "category": "Traytor"
       },
       {
-        "command": "sdd.executeTask",
-        "title": "SDD: Execute Task",
-        "category": "SDD"
+        "command": "traytor.executeTask",
+        "title": "Traytor: Execute Task",
+        "category": "Traytor"
       },
       {
-        "command": "sdd.verifyTask",
-        "title": "SDD: Verify Task",
-        "category": "SDD"
+        "command": "traytor.verifyTask",
+        "title": "Traytor: Verify Task",
+        "category": "Traytor"
       },
       {
-        "command": "sdd.showHistory",
-        "title": "SDD: Show Task History",
-        "category": "SDD"
+        "command": "traytor.showHistory",
+        "title": "Traytor: Show Task History",
+        "category": "Traytor"
       },
       {
-        "command": "sdd.refreshTasks",
-        "title": "SDD: Refresh Task List",
-        "category": "SDD",
+        "command": "traytor.refreshTasks",
+        "title": "Traytor: Refresh Task List",
+        "category": "Traytor",
         "icon": "$(refresh)"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "sdd-sidebar",
-          "title": "SDD Tasks",
+          "id": "traytor-sidebar",
+          "title": "Traytor Tasks",
           "icon": "$(checklist)"
         }
       ]
     },
     "views": {
-      "sdd-sidebar": [
+      "traytor-sidebar": [
         {
-          "id": "sddTasksView",
+          "id": "traytorTasksView",
           "name": "Task List",
           "icon": "$(checklist)"
         }
@@ -68,8 +68,8 @@
     },
     "viewsWelcome": [
       {
-        "view": "sddTasksView",
-        "contents": "No tasks found.\n[SDD: Create Plan](command:sdd.createPlan)"
+        "view": "traytorTasksView",
+        "contents": "No tasks found.\n[Traytor: Create Plan](command:traytor.createPlan)"
       }
     ]
   },

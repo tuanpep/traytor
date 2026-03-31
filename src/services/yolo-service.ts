@@ -26,7 +26,6 @@ export interface YOLOOptions {
   timeout?: number;
   maxRetries?: number;
   dryRun?: boolean;
-  parallel?: boolean;
 }
 
 export interface PhaseResult {
@@ -114,7 +113,6 @@ export class YOLOService {
       timeout: options.timeout ?? this.config.timeout ?? 300000,
       maxRetries: options.maxRetries ?? this.config.maxRetriesPerPhase ?? 3,
       dryRun: options.dryRun ?? false,
-      parallel: options.parallel ?? false,
     };
   }
 
@@ -134,65 +132,47 @@ export class YOLOService {
     console.log(chalk.bold('\n🚀 YOLO Mode Execution\n'));
     console.log(chalk.dim(`Task: ${taskId}`));
     console.log(chalk.dim(`Executing phases ${fromPhase} to ${toPhase} of ${phases.length}`));
-    if (effectiveOptions.parallel) {
-      console.log(chalk.dim('Mode: Parallel execution'));
-    } else {
-      console.log(chalk.dim('Mode: Sequential execution'));
-    }
     console.log('');
 
     const phaseResults: PhaseResult[] = [];
     let completedPhases = 0;
     let failedPhases = 0;
 
-    if (effectiveOptions.parallel) {
-      const results = await this.executePhasesParallel(
-        task,
-        phases,
-        effectiveOptions,
-        fromPhase,
-        toPhase
-      );
-      phaseResults.push(...results);
-      completedPhases = results.filter((r) => r.status === 'success').length;
-      failedPhases = results.filter((r) => r.status === 'failed').length;
-    } else {
-      for (const phase of phases) {
-        if (phase.order < fromPhase) {
-          phaseResults.push({
-            phaseOrder: phase.order,
-            phaseName: phase.name,
-            status: 'skipped',
-          });
-          continue;
+    for (const phase of phases) {
+      if (phase.order < fromPhase) {
+        phaseResults.push({
+          phaseOrder: phase.order,
+          phaseName: phase.name,
+          status: 'skipped',
+        });
+        continue;
+      }
+
+      if (phase.order > toPhase) {
+        break;
+      }
+
+      console.log(chalk.cyan(`\n${'─'.repeat(50)}`));
+      console.log(chalk.bold(`Phase ${phase.order}/${phases.length}: ${phase.name}`));
+      console.log(chalk.cyan('─'.repeat(50)));
+
+      const result = await this.executePhase(task, phase, effectiveOptions);
+
+      phaseResults.push(result);
+
+      if (result.status === 'success') {
+        completedPhases++;
+        console.log(chalk.green(`\n✓ Phase ${phase.order} completed successfully`));
+      } else if (result.status === 'failed') {
+        failedPhases++;
+        console.log(chalk.red(`\n✗ Phase ${phase.order} failed`));
+        if (result.error) {
+          console.log(chalk.dim(`  Error: ${result.error}`));
         }
 
-        if (phase.order > toPhase) {
+        if (!effectiveOptions.dryRun) {
+          console.log(chalk.yellow('\nStopping YOLO execution due to phase failure.'));
           break;
-        }
-
-        console.log(chalk.cyan(`\n${'─'.repeat(50)}`));
-        console.log(chalk.bold(`Phase ${phase.order}/${phases.length}: ${phase.name}`));
-        console.log(chalk.cyan('─'.repeat(50)));
-
-        const result = await this.executePhase(task, phase, effectiveOptions);
-
-        phaseResults.push(result);
-
-        if (result.status === 'success') {
-          completedPhases++;
-          console.log(chalk.green(`\n✓ Phase ${phase.order} completed successfully`));
-        } else if (result.status === 'failed') {
-          failedPhases++;
-          console.log(chalk.red(`\n✗ Phase ${phase.order} failed`));
-          if (result.error) {
-            console.log(chalk.dim(`  Error: ${result.error}`));
-          }
-
-          if (!effectiveOptions.dryRun) {
-            console.log(chalk.yellow('\nStopping YOLO execution due to phase failure.'));
-            break;
-          }
         }
       }
     }
@@ -217,41 +197,6 @@ export class YOLOService {
   private getCurrentPhaseOrder(phases: Phase[]): number {
     const nextPhase = phases.find((p) => p.status === 'pending' || p.status === 'in_progress');
     return nextPhase?.order ?? 1;
-  }
-
-  private async executePhasesParallel(
-    task: Task,
-    phases: Phase[],
-    options: Required<YOLOOptions>,
-    fromPhase: number,
-    toPhase: number
-  ): Promise<PhaseResult[]> {
-    const targetPhases = phases.filter((p) => p.order >= fromPhase && p.order <= toPhase);
-
-    console.log(chalk.bold(`\n⚡ Executing ${targetPhases.length} phases in parallel\n`));
-
-    const results = await Promise.all(
-      targetPhases.map(async (phase) => {
-        console.log(chalk.cyan(`\n${'─'.repeat(50)}`));
-        console.log(chalk.bold(`Phase ${phase.order}/${phases.length}: ${phase.name} (parallel)`));
-        console.log(chalk.cyan('─'.repeat(50)));
-
-        const result = await this.executePhase(task, phase, options);
-
-        if (result.status === 'success') {
-          console.log(chalk.green(`✓ Phase ${phase.order} completed`));
-        } else {
-          console.log(chalk.red(`✗ Phase ${phase.order} failed`));
-          if (result.error) {
-            console.log(chalk.dim(`  Error: ${result.error}`));
-          }
-        }
-
-        return result;
-      })
-    );
-
-    return results;
   }
 
   private async executePhase(

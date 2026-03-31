@@ -49,7 +49,7 @@ export function getHomeDir(): string {
 }
 
 export function getConfigDir(): string {
-  return path.join(getHomeDir(), '.sdd-tool');
+  return path.join(getHomeDir(), '.traytor');
 }
 
 export function getDataDir(): string {
@@ -82,5 +82,5 @@ export function isKeychainAvailable(): boolean {
 }
 
 export function getServiceName(): string {
-  return 'com.traytor.sdd';
+  return 'com.traytor.app';
 }

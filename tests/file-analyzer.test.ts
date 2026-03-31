@@ -8,7 +8,7 @@ describe('FileAnalyzer', () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sdd-test-'));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'traytor-test-'));
   });
 
   afterEach(() => {

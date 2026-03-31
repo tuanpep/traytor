@@ -15,12 +15,11 @@ export interface ReviewCommandOptions {
   output?: 'terminal' | 'markdown' | 'json';
   outputFile?: string;
   cwd?: string;
-  /** Fix mode: send review comments to agent for fixing */
   fix?: boolean;
-  /** Comma-separated comment IDs to fix (omit to fix all) */
+  taskId?: string;
   fixCommentIds?: string;
-  /** Template for fix prompt */
   fixTemplate?: string;
+  agentService?: AgentService;
 }
 
 /**
@@ -133,19 +132,21 @@ async function runReviewFix(
 ): Promise<void> {
   const logger = getLogger();
 
-  if (!options.fixCommentIds) {
+  if (!options.taskId) {
     console.error(
       chalk.red(
-        '--fix requires a task ID. Usage: sdd review --fix <task-id> [--fix-comment-ids <ids>]'
+        '--fix requires a task ID. Usage: traytor review --fix --task-id <task-id> [--fix-comment-ids <ids>]'
       )
     );
     console.log(
-      chalk.dim('Example: sdd review --fix task_123 --fix-comment-ids rcomment_1,rcomment_2')
+      chalk.dim(
+        'Example: traytor review --fix --task-id task_123 --fix-comment-ids rcomment_1,rcomment_2'
+      )
     );
     return;
   }
 
-  const taskId = options.fixCommentIds;
+  const taskId = options.taskId;
 
   logger.info(`Fixing review comments for task: ${taskId}`);
 
@@ -173,24 +174,10 @@ async function runReviewFix(
   // 2. Execute fixes via agent
   const fixPrompt = reviewGenerator.generateFixPrompt(review, commentIds);
 
-  const fixTask = {
-    id: `review_fix_${review.id}`,
-    type: 'review' as const,
-    query: fixPrompt,
-    status: 'in_progress' as const,
-    context: task.context,
-    executions: [],
-    history: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
   const spinner = ora(`Fixing ${selectedComments.length} review comments...`).start();
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const agentService = (taskService as any).agentService as AgentService;
-    if (!agentService) {
+    if (!options.agentService) {
       spinner.fail(chalk.red('Agent service not available for review fix execution'));
       console.log(chalk.dim('Falling back to prompt-only mode...'));
       console.log(chalk.bold('\nReview Fix Prompt:'));
@@ -200,7 +187,19 @@ async function runReviewFix(
       return;
     }
 
-    const execResult = await agentService.execute(fixTask, {
+    const fixTask = {
+      id: `review_fix_${review.id}`,
+      type: 'review' as const,
+      query: fixPrompt,
+      status: 'in_progress' as const,
+      context: task.context,
+      executions: [],
+      history: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const execResult = await options.agentService.execute(fixTask, {
       cwd: options.cwd || process.cwd(),
     });
 

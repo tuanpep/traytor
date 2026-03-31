@@ -65,7 +65,7 @@ function createMockConfig(overrides?: Partial<Config>): Config {
     defaultAgent: undefined,
     agents: [],
     templates: {},
-    dataDir: '~/.sdd-tool/data',
+    dataDir: '~/.traytor/data',
     logLevel: 'info',
     verification: {
       autoVerify: false,
@@ -80,9 +80,11 @@ describe('AgentService', () => {
     vi.clearAllMocks();
     // Default mock for spawn - simulates a successful process
     mockSpawn.mockReturnValue({
-      stdout: { on: vi.fn((event: string, cb: (chunk: Buffer) => void) => {
-        if (event === 'data') setTimeout(() => cb(Buffer.from('output')), 10);
-      }) },
+      stdout: {
+        on: vi.fn((event: string, cb: (chunk: Buffer) => void) => {
+          if (event === 'data') setTimeout(() => cb(Buffer.from('output')), 10);
+        }),
+      },
       stderr: { on: vi.fn() },
       on: vi.fn((event: string, cb: (code: number) => void) => {
         if (event === 'close') setTimeout(() => cb(0), 20);
@@ -125,10 +127,10 @@ describe('AgentService', () => {
     expect(spawnArgs[0]).toBe('claude --dangerously-skip-permissions');
 
     const spawnOptions = spawnArgs[1];
-    expect(spawnOptions.env.TRAYCER_PROMPT).toContain('Test task');
-    expect(spawnOptions.env.TRAYCER_PROMPT_TMP_FILE).toBeDefined();
-    expect(spawnOptions.env.TRAYCER_TASK_ID).toBe('task_test_123');
-    expect(spawnOptions.env.TRAYCER_SYSTEM_PROMPT).toContain('task_test_123');
+    expect(spawnOptions.env.TRAYTOR_PROMPT).toContain('Test task');
+    expect(spawnOptions.env.TRAYTOR_PROMPT_TMP_FILE).toBeDefined();
+    expect(spawnOptions.env.TRAYTOR_TASK_ID).toBe('task_test_123');
+    expect(spawnOptions.env.TRAYTOR_SYSTEM_PROMPT).toContain('task_test_123');
   });
 
   it('should write prompt to temp file and clean up', async () => {
@@ -137,16 +139,18 @@ describe('AgentService', () => {
 
     const tmpFilesCreated: string[] = [];
     const originalWriteFileSync = fs.writeFileSync;
-    vi.spyOn(fs, 'writeFileSync').mockImplementation((file: fs.PathOrFileDescriptor, data: string | NodeJS.ArrayBufferView) => {
-      tmpFilesCreated.push(String(file));
-      return originalWriteFileSync(file, data, 'utf-8');
-    });
+    vi.spyOn(fs, 'writeFileSync').mockImplementation(
+      (file: fs.PathOrFileDescriptor, data: string | NodeJS.ArrayBufferView) => {
+        tmpFilesCreated.push(String(file));
+        return originalWriteFileSync(file, data, 'utf-8');
+      }
+    );
 
     await service.execute(task);
 
     // Should have created a temp file
     expect(tmpFilesCreated.length).toBeGreaterThan(0);
-    expect(tmpFilesCreated[0]).toContain('sdd-prompt-');
+    expect(tmpFilesCreated[0]).toContain('traytor-prompt-');
 
     vi.restoreAllMocks();
   });
@@ -192,9 +196,11 @@ describe('AgentService', () => {
   it('should report failure when agent exits with non-zero code', async () => {
     mockSpawn.mockReturnValue({
       stdout: { on: vi.fn() },
-      stderr: { on: vi.fn((event: string, cb: (chunk: Buffer) => void) => {
-        if (event === 'data') setTimeout(() => cb(Buffer.from('error output')), 10);
-      }) },
+      stderr: {
+        on: vi.fn((event: string, cb: (chunk: Buffer) => void) => {
+          if (event === 'data') setTimeout(() => cb(Buffer.from('error output')), 10);
+        }),
+      },
       on: vi.fn((event: string, cb: (code: number) => void) => {
         if (event === 'close') setTimeout(() => cb(1), 20);
         if (event === 'exit') setTimeout(() => cb(1), 20);

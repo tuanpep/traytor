@@ -1,6 +1,5 @@
-import * as path from 'path';
-import { execSync } from 'child_process';
-import { EventEmitter, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { exec } from 'child_process';
+import { EventEmitter, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { SddOutputChannel } from './output-channel.js';
 
 export interface SddTask {
@@ -14,9 +13,11 @@ export class SddTaskProvider {
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
   private tasks: SddTask[] = [];
   private outputChannel: SddOutputChannel;
+  private extensionUri: Uri;
 
-  constructor(outputChannel: SddOutputChannel) {
+  constructor(outputChannel: SddOutputChannel, extensionUri: Uri) {
     this.outputChannel = outputChannel;
+    this.extensionUri = extensionUri;
   }
 
   refresh(): void {
@@ -26,14 +27,30 @@ export class SddTaskProvider {
 
   async loadTasks(): Promise<void> {
     try {
-      const result = execSync('sdd history --output json 2>/dev/null', {
-        encoding: 'utf-8',
-        timeout: 10000,
+      const result = await new Promise<string>((resolve, reject) => {
+        exec(
+          'traytor history --output json',
+          {
+            encoding: 'utf-8',
+            timeout: 10000,
+            maxBuffer: 1024 * 1024 * 5,
+          },
+          (error, stdout, stderr) => {
+            if (error) {
+              reject(new Error(stderr || error.message));
+            } else {
+              resolve(stdout);
+            }
+          }
+        );
       });
 
       const data = JSON.parse(result);
       this.tasks = Array.isArray(data) ? data : [];
-    } catch {
+    } catch (error) {
+      this.outputChannel.appendLine(
+        `Failed to load tasks: ${error instanceof Error ? error.message : String(error)}`
+      );
       this.tasks = [];
     }
   }
@@ -44,10 +61,10 @@ export class SddTaskProvider {
     item.iconPath = this.getStatusIcon(element.status);
     item.tooltip = `${element.id} - ${element.status}`;
     item.description = element.status.replace('_', ' ');
-    item.contextValue = `sddTask-${element.status}`;
+    item.contextValue = `traytorTask-${element.status}`;
 
     item.command = {
-      command: 'sdd.executeTask',
+      command: 'traytor.executeTask',
       title: 'Execute Task',
       arguments: [element.id],
     };
@@ -59,28 +76,28 @@ export class SddTaskProvider {
     return this.tasks;
   }
 
-  private getStatusIcon(status: string): { light: string; dark: string } {
-    const iconPath = path.join(__dirname, '..', 'media');
+  private getStatusIcon(status: string): { light: Uri; dark: Uri } {
+    const mediaPath = Uri.joinPath(this.extensionUri, 'media');
     switch (status) {
       case 'completed':
         return {
-          light: path.join(iconPath, 'status-completed-light.svg'),
-          dark: path.join(iconPath, 'status-completed-dark.svg'),
+          light: Uri.joinPath(mediaPath, 'status-completed-light.svg'),
+          dark: Uri.joinPath(mediaPath, 'status-completed-dark.svg'),
         };
       case 'in_progress':
         return {
-          light: path.join(iconPath, 'status-in-progress-light.svg'),
-          dark: path.join(iconPath, 'status-in-progress-dark.svg'),
+          light: Uri.joinPath(mediaPath, 'status-in-progress-light.svg'),
+          dark: Uri.joinPath(mediaPath, 'status-in-progress-dark.svg'),
         };
       case 'failed':
         return {
-          light: path.join(iconPath, 'status-failed-light.svg'),
-          dark: path.join(iconPath, 'status-failed-dark.svg'),
+          light: Uri.joinPath(mediaPath, 'status-failed-light.svg'),
+          dark: Uri.joinPath(mediaPath, 'status-failed-dark.svg'),
         };
       default:
         return {
-          light: path.join(iconPath, 'status-pending-light.svg'),
-          dark: path.join(iconPath, 'status-pending-dark.svg'),
+          light: Uri.joinPath(mediaPath, 'status-pending-light.svg'),
+          dark: Uri.joinPath(mediaPath, 'status-pending-dark.svg'),
         };
     }
   }

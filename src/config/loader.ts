@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import os from 'node:os';
 import { join } from 'node:path';
 import { parse as parseYaml } from 'yaml';
@@ -8,9 +9,10 @@ import { SDDError, ErrorCode } from '../utils/errors.js';
 import { getLogger } from '../utils/logger.js';
 import { SecureStorage } from '../utils/secure-storage.js';
 
-const USER_CONFIG_DIR = '.sdd-tool';
+const USER_CONFIG_DIR = '.traytor';
 const USER_CONFIG_FILE = 'config.yaml';
-const PROJECT_CONFIG_DIR = '.sdd-tool';
+const USER_AGENTS_FILE = 'agents.json';
+const PROJECT_CONFIG_DIR = '.traytor';
 const PROJECT_CONFIG_FILE = 'config.yaml';
 
 function getUserConfigPath(): string {
@@ -34,12 +36,10 @@ async function readYamlFile(filePath: string): Promise<Record<string, unknown> |
 function applyEnvOverrides(config: Config): Config {
   const result = { ...config };
 
-  // Provider
   if (process.env.SDD_PROVIDER) {
     result.provider = process.env.SDD_PROVIDER as Config['provider'];
   }
 
-  // Anthropic
   if (process.env.ANTHROPIC_API_KEY) {
     result.anthropic = { ...result.anthropic, apiKey: process.env.ANTHROPIC_API_KEY };
   }
@@ -62,7 +62,6 @@ function applyEnvOverrides(config: Config): Config {
     result.anthropic = { ...result.anthropic, baseURL: process.env.SDD_ANTHROPIC_BASE_URL };
   }
 
-  // OpenAI
   if (process.env.OPENAI_API_KEY) {
     result.openai = { ...result.openai, apiKey: process.env.OPENAI_API_KEY };
   }
@@ -85,11 +84,10 @@ function applyEnvOverrides(config: Config): Config {
     result.openai = { ...result.openai, baseURL: process.env.OPENAI_BASE_URL };
   }
 
-  // OpenAI-compatible (Z.ai, Ollama, OpenRouter, Groq, etc.)
   if (
-    process.env.COMPATIBLE_API_KEY ||
-    process.env.COMPATIBLE_MODEL ||
-    process.env.COMPATIBLE_BASE_URL
+    process.env.SDD_COMPATIBLE_API_KEY ||
+    process.env.SDD_COMPATIBLE_MODEL ||
+    process.env.SDD_COMPATIBLE_BASE_URL
   ) {
     const existing = result.openaiCompatible || {
       model: '',
@@ -98,33 +96,39 @@ function applyEnvOverrides(config: Config): Config {
       temperature: 0,
     };
     result.openaiCompatible = { ...existing };
-    if (process.env.COMPATIBLE_API_KEY) {
-      result.openaiCompatible.apiKey = process.env.COMPATIBLE_API_KEY;
+    if (process.env.SDD_COMPATIBLE_API_KEY) {
+      result.openaiCompatible.apiKey = process.env.SDD_COMPATIBLE_API_KEY;
     }
-    if (process.env.COMPATIBLE_MODEL) {
-      result.openaiCompatible.model = process.env.COMPATIBLE_MODEL;
+    if (process.env.SDD_COMPATIBLE_MODEL) {
+      result.openaiCompatible.model = process.env.SDD_COMPATIBLE_MODEL;
     }
-    if (process.env.COMPATIBLE_BASE_URL) {
-      result.openaiCompatible.baseURL = process.env.COMPATIBLE_BASE_URL;
+    if (process.env.SDD_COMPATIBLE_BASE_URL) {
+      result.openaiCompatible.baseURL = process.env.SDD_COMPATIBLE_BASE_URL;
     }
   }
 
-  // Default agent
   if (process.env.SDD_DEFAULT_AGENT) {
     result.defaultAgent = process.env.SDD_DEFAULT_AGENT;
   }
 
-  // Log level
   if (process.env.SDD_LOG_LEVEL) {
     result.logLevel = process.env.SDD_LOG_LEVEL as Config['logLevel'];
   }
 
-  // Data dir
   if (process.env.SDD_DATA_DIR) {
     result.dataDir = process.env.SDD_DATA_DIR;
   }
 
   return result;
+}
+
+async function readJsonFile(filePath: string): Promise<Record<string, unknown> | null> {
+  try {
+    const content = await readFile(filePath, 'utf-8');
+    return JSON.parse(content) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
 }
 
 async function applySecureStorageOverrides(config: Config): Promise<Config> {
@@ -211,11 +215,9 @@ export class ConfigLoader {
 
     logger.debug('Loading configuration...');
 
-    // Step 1: Start with defaults
     let merged = { ...DEFAULT_CONFIG };
     logger.debug('Applied default configuration');
 
-    // Step 2: Load and merge user config
     if (!opts.skipUserConfig) {
       const userConfigPath = getUserConfigPath();
       const userConfig = await readYamlFile(userConfigPath);
@@ -226,9 +228,23 @@ export class ConfigLoader {
         ) as unknown as Config;
         logger.debug(`Loaded user config from ${userConfigPath}`);
       }
+
+      // Load agents.json from user config dir
+      const userAgentsPath = join(os.homedir(), USER_CONFIG_DIR, USER_AGENTS_FILE);
+      if (existsSync(userAgentsPath)) {
+        const userAgents = await readJsonFile(userAgentsPath);
+        if (userAgents) {
+          if (userAgents.agents) {
+            merged.agents = userAgents.agents as Config['agents'];
+            logger.debug(`Loaded user agents from ${userAgentsPath}`);
+          }
+          if (userAgents.defaultAgent) {
+            merged.defaultAgent = userAgents.defaultAgent as string;
+          }
+        }
+      }
     }
 
-    // Step 3: Load and merge project config
     if (!opts.skipProjectConfig) {
       const projectConfigPath = getProjectConfigPath(opts.cwd);
       const projectConfig = await readYamlFile(projectConfigPath);
@@ -241,16 +257,13 @@ export class ConfigLoader {
       }
     }
 
-    // Step 4: Apply environment variable overrides
     if (!opts.skipEnvOverrides) {
       merged = applyEnvOverrides(merged);
       logger.debug('Applied environment variable overrides');
     }
 
-    // Step 5: Apply secure storage overrides
     merged = await applySecureStorageOverrides(merged);
 
-    // Step 6: Validate with Zod
     const parsed = ConfigSchema.safeParse(merged);
     if (!parsed.success) {
       const errors = parsed.error.issues

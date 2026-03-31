@@ -7,7 +7,7 @@ import { WorkflowError, WorkflowNotFoundError, WorkflowStateError } from '../uti
 import type { GitService } from './git-service.js';
 import {
   DEFAULT_WORKFLOW,
-  TRAYCER_AGILE_WORKFLOW,
+  SDD_AGILE_WORKFLOW,
   createWorkflowId,
   createWorkflowStepDefId,
   type WorkflowDefinition,
@@ -38,12 +38,12 @@ export class WorkflowEngine {
 
   constructor(options: WorkflowEngineOptions = {}) {
     this.workflowsDir = path.join(
-      options.dataDir ?? path.join(os.homedir(), '.sdd-tool', 'data'),
+      options.dataDir ?? path.join(os.homedir(), '.traytor', 'data'),
       WORKFLOWS_DIR_NAME
     );
     this.gitService = options.gitService;
     this.definitions.set(DEFAULT_WORKFLOW.name, DEFAULT_WORKFLOW);
-    this.definitions.set(TRAYCER_AGILE_WORKFLOW.name, TRAYCER_AGILE_WORKFLOW);
+    this.definitions.set(SDD_AGILE_WORKFLOW.name, SDD_AGILE_WORKFLOW);
   }
 
   /**

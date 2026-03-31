@@ -66,11 +66,11 @@ export async function runPhasesCommand(
     for (const phase of phases) {
       console.log(
         chalk.dim(
-          `  sdd exec ${task.id} --phase ${phase.order}   # Execute phase ${phase.order}: ${phase.name}`
+          `  traytor exec ${task.id} --phase ${phase.order}   # Execute phase ${phase.order}: ${phase.name}`
         )
       );
     }
-    console.log(chalk.dim(`  sdd verify ${task.id} --phase <n>  # Verify a specific phase`));
+    console.log(chalk.dim(`  traytor verify ${task.id} --phase <n>  # Verify a specific phase`));
   } catch (error) {
     spinner.fail(chalk.red('Phase generation failed'));
     if (error instanceof PhaseGenerationError) {

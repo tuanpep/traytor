@@ -264,7 +264,7 @@ Implement all steps completely. Do not skip any steps.`;
    */
   private writeTempFile(prompt: string): string {
     const tmpDir = os.tmpdir();
-    const tmpPath = path.join(tmpDir, `sdd-prompt-${Date.now()}.txt`);
+    const tmpPath = path.join(tmpDir, `traytor-prompt-${Date.now()}.txt`);
     fs.writeFileSync(tmpPath, prompt, 'utf-8');
     this.logger.debug(`Prompt written to temp file: ${tmpPath}`);
     return tmpPath;
@@ -281,10 +281,10 @@ Implement all steps completely. Do not skip any steps.`;
   ): Record<string, string> {
     const env: Record<string, string> = {
       ...(process.env as Record<string, string>),
-      TRAYCER_PROMPT: prompt,
-      TRAYCER_PROMPT_TMP_FILE: tmpFile,
-      TRAYCER_TASK_ID: task.id,
-      TRAYCER_SYSTEM_PROMPT: `Implement the plan for task ${task.id}: ${task.query}`,
+      SDD_PROMPT: prompt,
+      SDD_PROMPT_TMP_FILE: tmpFile,
+      SDD_TASK_ID: task.id,
+      SDD_SYSTEM_PROMPT: `Implement the plan for task ${task.id}: ${task.query}`,
     };
 
     if (extraEnv) {
@@ -305,7 +305,32 @@ Implement all steps completely. Do not skip any steps.`;
     cwd?: string
   ): Promise<AgentExecutionResult> {
     return new Promise((resolve, reject) => {
-      const fullCommand = [agentConfig.command, ...agentConfig.args].join(' ');
+      const prompt = env.SDD_PROMPT || '';
+      const tmpFile = env.SDD_PROMPT_TMP_FILE || '';
+      const agentName = agentConfig.name;
+
+      // Build command based on agent type
+      let fullCommand: string;
+      let useStdin = false;
+
+      if (agentName === 'claude' || agentName === 'cursor') {
+        // Claude Code and cursor-agent: use temp file approach
+        // claude -p "prompt" or read from file
+        if (tmpFile) {
+          fullCommand = `${agentConfig.command} ${agentConfig.args.join(' ')} -p "$(cat ${tmpFile})"`;
+        } else {
+          fullCommand = `${agentConfig.command} ${agentConfig.args.join(' ')} -p "${prompt.replace(/"/g, '\\"').replace(/\$/g, '\\$')}"`;
+        }
+      } else if (agentName === 'opencode') {
+        // OpenCode: use --print with stdin
+        fullCommand = `${agentConfig.command} ${agentConfig.args.join(' ')}`;
+        useStdin = true;
+      } else {
+        // Default: use args as-is, stdin for prompt
+        fullCommand = [agentConfig.command, ...agentConfig.args].join(' ');
+        useStdin = true;
+      }
+
       this.logger.info(`Spawning agent: ${fullCommand} (shell: ${agentConfig.shell})`);
 
       let child: ChildProcess;
@@ -323,6 +348,11 @@ Implement all steps completely. Do not skip any steps.`;
         }
 
         child = spawn(fullCommand, spawnOptions);
+
+        if (useStdin && prompt) {
+          child.stdin?.write(prompt);
+          child.stdin?.end();
+        }
       } catch (error) {
         reject(
           new AgentExecutionError(

@@ -51,7 +51,7 @@ export class TaskNotFoundError extends SDDError {
     super(
       ErrorCode.TASK_NOT_FOUND,
       `Task "${taskId}" not found`,
-      'Use `sdd history` to list all tasks',
+      'Use `traytor history` to list all tasks',
       { taskId }
     );
     this.name = 'TaskNotFoundError';
@@ -99,7 +99,7 @@ export class PhaseNotFoundError extends SDDError {
     super(
       ErrorCode.PHASE_NOT_FOUND,
       `Phase "${phaseId}" not found in task "${taskId}"`,
-      'Use `sdd history` to list all tasks and check phase numbers',
+      'Use `traytor history` to list all tasks and check phase numbers',
       { phaseId, taskId }
     );
     this.name = 'PhaseNotFoundError';
@@ -123,7 +123,7 @@ export class EpicNotFoundError extends SDDError {
     super(
       ErrorCode.EPIC_NOT_FOUND,
       `Epic "${epicId}" not found`,
-      'Use `sdd history` to list all tasks or `sdd epic list` to list epics',
+      'Use `traytor history` to list all tasks or `traytor epic list` to list epics',
       { epicId }
     );
     this.name = 'EpicNotFoundError';
@@ -135,7 +135,7 @@ export class SpecNotFoundError extends SDDError {
     super(
       ErrorCode.SPEC_NOT_FOUND,
       `Spec "${specId}" not found in epic "${epicId}"`,
-      'Use `sdd epic spec list <task-id>` to list all specs in the epic',
+      'Use `traytor epic spec list <task-id>` to list all specs in the epic',
       { specId, epicId }
     );
     this.name = 'SpecNotFoundError';
@@ -147,7 +147,7 @@ export class TicketNotFoundError extends SDDError {
     super(
       ErrorCode.TICKET_NOT_FOUND,
       `Ticket "${ticketId}" not found in epic "${epicId}"`,
-      'Use `sdd epic ticket list <task-id>` to list all tickets in the epic',
+      'Use `traytor epic ticket list <task-id>` to list all tickets in the epic',
       { ticketId, epicId }
     );
     this.name = 'TicketNotFoundError';
@@ -214,7 +214,7 @@ export class WorkflowNotFoundError extends SDDError {
     super(
       ErrorCode.WORKFLOW_NOT_FOUND,
       `Workflow "${workflowName}" not found`,
-      'Use `sdd workflow list` to see available workflows',
+      'Use `traytor workflow list` to see available workflows',
       { workflowName }
     );
     this.name = 'WorkflowNotFoundError';

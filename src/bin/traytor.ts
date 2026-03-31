@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import path from 'node:path';
 import { Command } from 'commander';
 import chalk from 'chalk';
@@ -58,10 +59,13 @@ import {
 } from '../commands/epic.js';
 import { runHelpCommand } from '../commands/help.js';
 import { runTUICommand } from '../commands/tui.js';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const pkgVersion = require('../../package.json').version;
 
 const program = new Command();
 
-program.name('sdd').description('Personal Spec-Driven Development CLI Tool').version('0.1.0');
+program.name('traytor').description('Personal Spec-Driven Development CLI Tool').version(pkgVersion);
 
 program
   .command('hello')
@@ -75,7 +79,7 @@ program
 
       const logger = getLogger();
       logger.debug('Verbose mode enabled');
-      logger.info('SDD Tool is running!');
+      logger.info('Traytor is running!');
 
       console.log('');
       const currentModel =
@@ -101,6 +105,7 @@ program
 
 program
   .command('plan')
+  .alias('p')
   .description('Generate an implementation plan for a task')
   .argument('<query>', 'Task description to plan')
   .option('-f, --files <files...>', 'Specific files to include in analysis')
@@ -308,6 +313,7 @@ program
 
 program
   .command('exec')
+  .alias('e')
   .description('Execute a task with an AI agent')
   .argument('<task-id>', 'Task ID to execute')
   .option('--cwd <path>', 'Working directory for the agent')
@@ -338,6 +344,7 @@ program
 
 program
   .command('verify')
+  .alias('v')
   .description('Verify a task implementation against its plan')
   .argument('<task-id>', 'Task ID to verify')
   .option('--cwd <path>', 'Working directory to analyze')
@@ -389,8 +396,9 @@ program
   .option('-o, --output <format>', 'Output format: terminal, markdown, json', 'terminal')
   .option('--output-file <path>', 'Write output to a file (for markdown/json)')
   .option('--cwd <path>', 'Working directory to analyze')
-  .option('--fix', 'Fix mode: generate fix prompt for review comments')
-  .option('--fix-comment-ids <ids>', 'Comma-separated comment IDs to fix (for --fix mode)')
+  .option('--fix', 'Fix mode: send review comments to agent for fixing')
+  .option('--task-id <id>', 'Task ID (required for --fix mode)')
+  .option('--fix-comment-ids <ids>', 'Comma-separated comment IDs to fix')
   .option('--fix-template <name>', 'Template for fix prompt')
   .option('-v, --verbose', 'Show verbose output')
   .action(async (query: string | undefined, opts) => {
@@ -408,6 +416,7 @@ program
         fix: opts.fix,
         fixCommentIds: opts.fixCommentIds,
         fixTemplate: opts.fixTemplate,
+        agentService: ctx.agentService,
       });
     } catch (err) {
       handleError(err);
@@ -418,13 +427,23 @@ program
 
 program
   .command('history')
+  .alias('h')
   .description('View task history')
-  .action(async () => {
+  .option('-o, --output <format>', 'Output format: terminal, json', 'terminal')
+  .option('--status <status>', 'Filter by status')
+  .option('--type <type>', 'Filter by task type')
+  .option('--limit <n>', 'Limit number of results', parseInt)
+  .action(async (opts) => {
     try {
       const ctx = await getContext();
       initLogger({ level: ctx.config.logLevel });
 
-      await runHistoryCommand(ctx.taskService);
+      await runHistoryCommand(ctx.taskService, {
+        output: opts.output,
+        status: opts.status,
+        type: opts.type,
+        limit: opts.limit,
+      });
     } catch (err) {
       handleError(err);
     }
@@ -433,7 +452,7 @@ program
 // ─── Agent Command ─────────────────────────────────────────────────────────
 
 function getProjectConfigDir(): string {
-  return path.join(process.cwd(), '.sdd-tool');
+  return path.join(process.cwd(), '.traytor');
 }
 
 program
@@ -561,6 +580,140 @@ program
     }
   });
 
+// ─── Ticket Assist Command ─────────────────────────────────────────────────
+
+program
+  .command('ticket-assist')
+  .description('GitHub issue integration - list, plan, and track tickets')
+  .argument('[subcommand]', 'Subcommand: list, plan, show')
+  .argument('[owner]', 'GitHub owner/org')
+  .argument('[repo]', 'GitHub repository')
+  .option('--issue-number <n>', 'GitHub issue number', parseInt)
+  .option('--label <label>', 'Filter issues by label')
+  .option('--task-id <id>', 'Task ID to link with')
+  .action(
+    async (
+      subcommand: string | undefined,
+      owner: string | undefined,
+      repo: string | undefined,
+      opts
+    ) => {
+      try {
+        const ctx = await getContext();
+        const { runTicketAssist } = await import('../commands/ticket-assist.js');
+        await runTicketAssist(
+          {
+            planGenerator: ctx.planGenerator,
+            taskService: ctx.taskService,
+          },
+          subcommand || 'list',
+          owner || '',
+          repo || '',
+          opts
+        );
+      } catch (err) {
+        handleError(err);
+      }
+    }
+  );
+
+// ─── Mermaid Command ───────────────────────────────────────────────────────
+
+program
+  .command('mermaid')
+  .description('Generate Mermaid diagrams from tasks, plans, and phases')
+  .argument('[subcommand]', 'Subcommand: show, export, url, generate, validate')
+  .argument('[taskId]', 'Task ID to generate diagram for')
+  .option('--format <format>', 'Output format: mermaid, png, svg', 'mermaid')
+  .option('--output <path>', 'Output file path')
+  .option('--type <type>', 'Diagram type: flowchart, sequence, class')
+  .option('--task-id <id>', 'Task ID (alternative to argument)')
+  .action(async (subcommand: string | undefined, taskId: string | undefined, opts) => {
+    try {
+      const { MermaidService } = await import('../services/mermaid-service.js');
+      const mermaidService = new MermaidService();
+      const mermaidCtx = { mermaidService };
+      const targetTaskId = taskId || opts.taskId || '';
+
+      let mermaidCode = '';
+      if (targetTaskId) {
+        const ctx = await getContext();
+        const task = await ctx.taskService.getTask(targetTaskId);
+        if (task.plan) {
+          mermaidCode = mermaidService.generateDiagramFromPlan({
+            steps: task.plan.steps.map((s) => ({ title: s.title, description: s.description })),
+          });
+        } else if (task.phases && task.phases.length > 0) {
+          const lines = ['graph TD', `  Start[Task: ${task.query}]`];
+          task.phases.forEach((p, i) => {
+            const prev = i === 0 ? 'Start' : `P${task.phases![i - 1].order}`;
+            lines.push(`  P${p.order}[Phase ${p.order}: ${p.name}]`);
+            lines.push(`  ${prev} --> P${p.order}`);
+          });
+          mermaidCode = lines.join('\n');
+        } else {
+          mermaidCode = `graph TD\n  A[Task: ${task.query}] --> B[No plan or phases yet]`;
+        }
+      } else {
+        mermaidCode = `graph TD\n  A[No task specified] --> B[Use: traytor mermaid show <task-id>]`;
+      }
+
+      switch (subcommand || 'show') {
+        case 'show': {
+          const { runMermaidShow } = await import('../commands/mermaid.js');
+          await runMermaidShow(mermaidCtx, mermaidCode);
+          break;
+        }
+        case 'url': {
+          const { runMermaidUrl } = await import('../commands/mermaid.js');
+          await runMermaidUrl(mermaidCtx, mermaidCode);
+          break;
+        }
+        case 'export': {
+          const { runMermaidExport } = await import('../commands/mermaid.js');
+          await runMermaidExport(mermaidCtx, mermaidCode, opts.output || 'diagram.mmd');
+          break;
+        }
+        case 'generate': {
+          const { runMermaidGenerate } = await import('../commands/mermaid.js');
+          if (!targetTaskId) {
+            console.error(
+              chalk.red('Task ID required for generate. Use: traytor mermaid generate <task-id>')
+            );
+            return;
+          }
+          const ctx = await getContext();
+          const task = await ctx.taskService.getTask(targetTaskId);
+          if (!task.plan) {
+            console.error(chalk.red('Task has no plan to generate diagram from.'));
+            return;
+          }
+          await runMermaidGenerate(mermaidCtx, task.plan.steps, opts.output);
+          break;
+        }
+        case 'validate': {
+          const { runMermaidValidate } = await import('../commands/mermaid.js');
+          if (!opts.input) {
+            console.error(
+              chalk.red('Input required for validate. Use: traytor mermaid validate --input "<code>"')
+            );
+            return;
+          }
+          await runMermaidValidate(mermaidCtx, opts.input);
+          break;
+        }
+        default:
+          console.error(
+            chalk.red(
+              `Unknown subcommand: ${subcommand}. Use: show, url, export, generate, validate`
+            )
+          );
+      }
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
 // ─── Epic Command ──────────────────────────────────────────────────────────
 
 program
@@ -672,9 +825,9 @@ program
       // Main epic creation
       if (!query) {
         console.error(chalk.red('A query is required to start a new epic'));
-        console.log(chalk.dim('Usage: sdd epic "Build auth system"'));
-        console.log(chalk.dim('       sdd epic --task-id <id> --spec list'));
-        console.log(chalk.dim('       sdd epic --task-id <id> --ticket list'));
+        console.log(chalk.dim('Usage: traytor epic "Build auth system"'));
+        console.log(chalk.dim('       traytor epic --task-id <id> --spec list'));
+        console.log(chalk.dim('       traytor epic --task-id <id> --ticket list'));
         process.exit(1);
       }
 
@@ -875,7 +1028,7 @@ program
         case 'set-key': {
           if (!provider || !apiKey) {
             console.error(chalk.red('Provider and API key are required for set-key.'));
-            console.log(chalk.dim('Usage: sdd config set-key <provider> <api-key>'));
+            console.log(chalk.dim('Usage: traytor config set-key <provider> <api-key>'));
             process.exit(1);
           }
           await runConfigSetKey(provider, apiKey);
@@ -884,7 +1037,7 @@ program
         case 'get-key': {
           if (!provider) {
             console.error(chalk.red('Provider is required for get-key.'));
-            console.log(chalk.dim('Usage: sdd config get-key <provider>'));
+            console.log(chalk.dim('Usage: traytor config get-key <provider>'));
             process.exit(1);
           }
           await runConfigGetKey(provider);
@@ -893,7 +1046,7 @@ program
         case 'remove-key': {
           if (!provider) {
             console.error(chalk.red('Provider is required for remove-key.'));
-            console.log(chalk.dim('Usage: sdd config remove-key <provider>'));
+            console.log(chalk.dim('Usage: traytor config remove-key <provider>'));
             process.exit(1);
           }
           await runConfigRemoveKey(provider);

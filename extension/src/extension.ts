@@ -5,20 +5,25 @@ import { registerCommands } from './commands.js';
 
 export function activate(context: vscode.ExtensionContext) {
   const outputChannel = new SddOutputChannel();
-  const taskProvider = new SddTaskProvider(outputChannel);
+  const taskProvider = new SddTaskProvider(outputChannel, context.extensionUri);
 
-  // Register tree data provider for sidebar
-  const treeView = vscode.window.createTreeView('sddTasksView', {
+  const treeView = vscode.window.createTreeView('traytorTasksView', {
     treeDataProvider: taskProvider,
   });
 
-  // Register commands
   registerCommands(context, taskProvider, outputChannel);
 
-  // Push to subscriptions for cleanup
   context.subscriptions.push(treeView, outputChannel);
 
-  outputChannel.appendLine('SDD extension activated');
+  outputChannel.appendLine('Traytor extension activated');
+
+  taskProvider.loadTasks();
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeWorkspaceFolders(() => {
+      taskProvider.loadTasks();
+    })
+  );
 }
 
 export function deactivate() {

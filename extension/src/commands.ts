@@ -1,23 +1,32 @@
 import * as vscode from 'vscode';
-import { execSync } from 'child_process';
+import { exec } from 'child_process';
 import type { SddTaskProvider } from './task-provider.js';
 import type { SddOutputChannel } from './output-channel.js';
 
-function getSddPath(): string {
-  return 'sdd';
+function getTraytorPath(): string {
+  return 'traytor';
 }
 
-function runSddCommand(args: string, timeout = 120000): string {
-  try {
-    return execSync(`${getSddPath()} ${args}`, {
-      encoding: 'utf-8',
-      timeout,
-      cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`SDD command failed: ${message}`);
-  }
+function runTraytorCommandAsync(args: string, timeout = 120000): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const cmd = `${getTraytorPath()} ${args}`;
+    exec(
+      cmd,
+      {
+        encoding: 'utf-8',
+        timeout,
+        cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+        maxBuffer: 1024 * 1024 * 10,
+      },
+      (error, stdout, stderr) => {
+        if (error) {
+          reject(new Error(stderr || error.message));
+        } else {
+          resolve(stdout);
+        }
+      }
+    );
+  });
 }
 
 export function registerCommands(
@@ -25,13 +34,12 @@ export function registerCommands(
   taskProvider: SddTaskProvider,
   outputChannel: SddOutputChannel
 ): void {
-  // SDD: Create Plan
   context.subscriptions.push(
-    vscode.commands.registerCommand('sdd.createPlan', async () => {
+    vscode.commands.registerCommand('traytor.createPlan', async () => {
       const query = await vscode.window.showInputBox({
         prompt: 'Enter task description to plan',
         placeHolder: 'e.g., Implement user authentication',
-        title: 'SDD: Create Plan',
+        title: 'Traytor: Create Plan',
       });
 
       if (!query) return;
@@ -40,10 +48,9 @@ export function registerCommands(
       outputChannel.appendLine(`Creating plan for: ${query}`);
 
       try {
-        const result = runSddCommand(`plan "${query.replace(/"/g, '\\"')}"`);
+        const result = await runSddCommandAsync(`plan "${query.replace(/"/g, '\\"')}"`);
         outputChannel.appendLine(result);
 
-        // Show result in a new document
         const doc = await vscode.workspace.openTextDocument({
           content: result,
           language: 'markdown',
@@ -60,9 +67,8 @@ export function registerCommands(
     })
   );
 
-  // SDD: Execute Task
   context.subscriptions.push(
-    vscode.commands.registerCommand('sdd.executeTask', async (taskId?: string) => {
+    vscode.commands.registerCommand('traytor.executeTask', async (taskId?: string) => {
       let targetTaskId = taskId;
 
       if (!targetTaskId) {
@@ -80,7 +86,7 @@ export function registerCommands(
 
         const selected = await vscode.window.showQuickPick(items, {
           placeHolder: 'Select a task to execute',
-          title: 'SDD: Execute Task',
+          title: 'Traytor: Execute Task',
         });
 
         if (!selected) return;
@@ -91,7 +97,7 @@ export function registerCommands(
       outputChannel.appendLine(`Executing task: ${targetTaskId}`);
 
       try {
-        const result = runSddCommand(`exec ${targetTaskId}`, 300000);
+        const result = await runSddCommandAsync(`exec ${targetTaskId}`, 300000);
         outputChannel.appendLine(result);
         vscode.window.showInformationMessage(`Task ${targetTaskId} executed successfully`);
         taskProvider.refresh();
@@ -103,9 +109,8 @@ export function registerCommands(
     })
   );
 
-  // SDD: Verify Task
   context.subscriptions.push(
-    vscode.commands.registerCommand('sdd.verifyTask', async (taskId?: string) => {
+    vscode.commands.registerCommand('traytor.verifyTask', async (taskId?: string) => {
       let targetTaskId = taskId;
 
       if (!targetTaskId) {
@@ -130,7 +135,7 @@ export function registerCommands(
 
         const selected = await vscode.window.showQuickPick(items, {
           placeHolder: 'Select a task to verify',
-          title: 'SDD: Verify Task',
+          title: 'Traytor: Verify Task',
         });
 
         if (!selected) return;
@@ -141,7 +146,7 @@ export function registerCommands(
       outputChannel.appendLine(`Verifying task: ${targetTaskId}`);
 
       try {
-        const result = runSddCommand(`verify ${targetTaskId}`);
+        const result = await runSddCommandAsync(`verify ${targetTaskId}`);
         outputChannel.appendLine(result);
         vscode.window.showInformationMessage(`Task ${targetTaskId} verified`);
         taskProvider.refresh();
@@ -153,14 +158,13 @@ export function registerCommands(
     })
   );
 
-  // SDD: Show History
   context.subscriptions.push(
-    vscode.commands.registerCommand('sdd.showHistory', async () => {
+    vscode.commands.registerCommand('traytor.showHistory', async () => {
       outputChannel.show();
       outputChannel.appendLine('Loading task history...');
 
       try {
-        const result = runSddCommand('history');
+        const result = await runSddCommandAsync('history');
         outputChannel.appendLine(result);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -170,9 +174,8 @@ export function registerCommands(
     })
   );
 
-  // SDD: Refresh Tasks
   context.subscriptions.push(
-    vscode.commands.registerCommand('sdd.refreshTasks', () => {
+    vscode.commands.registerCommand('traytor.refreshTasks', () => {
       taskProvider.refresh();
     })
   );

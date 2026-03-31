@@ -221,7 +221,7 @@ export async function runTUI(taskService: TaskService): Promise<void> {
 
         if (!verification) {
           process.stdout.write(chalk.yellow('\n  No verification results for this task.\n'));
-          process.stdout.write(chalk.dim('  Run "sdd verify <task-id>" to generate one.\n\n'));
+          process.stdout.write(chalk.dim('  Run "traytor verify <task-id>" to generate one.\n\n'));
           const { action } = await inquirer.prompt([
             {
               type: 'select',

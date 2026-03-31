@@ -48,7 +48,7 @@ export function runAgentList(ctx: AgentCommandContext, defaultAgent?: string): v
 
   if (agents.length === 0) {
     console.log(chalk.dim('No custom agents configured.'));
-    console.log(chalk.dim('Add one with: sdd agent add'));
+    console.log(chalk.dim('Add one with: traytor agent add'));
     return;
   }
 
@@ -88,7 +88,7 @@ export function runAgentAdd(
   const logger = getLogger();
   const configPath = getProjectConfigPath(ctx.projectConfigDir);
 
-  // Ensure .sdd-tool directory exists
+  // Ensure .traytor directory exists
   fs.mkdirSync(ctx.projectConfigDir, { recursive: true });
 
   const config = readProjectConfig(configPath);
@@ -97,7 +97,7 @@ export function runAgentAdd(
   // Check for duplicate name
   const existing = agents.find((a) => a.name === name);
   if (existing) {
-    console.error(chalk.red(`Agent "${name}" already exists. Use \`sdd agent remove ${name}\` first.`));
+    console.error(chalk.red(`Agent "${name}" already exists. Use \`traytor agent remove ${name}\` first.`));
     return;
   }
 

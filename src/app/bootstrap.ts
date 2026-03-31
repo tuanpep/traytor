@@ -42,9 +42,9 @@ export async function bootstrap(workingDir = process.cwd()): Promise<AppContext>
   const llmService = new LLMService(config);
   const mcpClient = new MCPClient();
 
-  // Resolve custom template directory from config or project .sdd-tool/templates
+  // Resolve custom template directory from config or project .traytor/templates
   const customTemplateDir = config.templates.customDir
-    ?? path.join(workingDir, '.sdd-tool', 'templates');
+    ?? path.join(workingDir, '.traytor', 'templates');
 
   const templateEngine = new TemplateEngine(customTemplateDir);
   const planGenerator = new PlanGenerator(llmService, templateEngine, workingDir);

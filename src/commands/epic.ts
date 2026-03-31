@@ -234,10 +234,10 @@ export async function runEpicCommand(
   // Show usage hints
   console.log(chalk.dim(`\nTask ID: ${task.id}`));
   console.log(chalk.dim('\nManage this epic:'));
-  console.log(chalk.dim(`  sdd epic spec list ${task.id}    # List all specs`));
-  console.log(chalk.dim(`  sdd epic spec create ${task.id}  # Add a new spec`));
-  console.log(chalk.dim(`  sdd epic ticket list ${task.id}  # List all tickets`));
-  console.log(chalk.dim(`  sdd epic ticket status ${task.id} <ticket-id> <status>  # Update ticket status`));
+  console.log(chalk.dim(`  traytor epic spec list ${task.id}    # List all specs`));
+  console.log(chalk.dim(`  traytor epic spec create ${task.id}  # Add a new spec`));
+  console.log(chalk.dim(`  traytor epic ticket list ${task.id}  # List all tickets`));
+  console.log(chalk.dim(`  traytor epic ticket status ${task.id} <ticket-id> <status>  # Update ticket status`));
 }
 
 // ─── Spec Sub-commands ────────────────────────────────────────────────────

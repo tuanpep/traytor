@@ -15,7 +15,7 @@ export class MermaidService {
   private tempDir: string;
 
   constructor() {
-    this.tempDir = path.join(os.tmpdir(), 'sdd-mermaid');
+    this.tempDir = path.join(os.tmpdir(), 'traytor-mermaid');
     fs.mkdirSync(this.tempDir, { recursive: true });
   }
 

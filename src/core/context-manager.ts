@@ -205,7 +205,7 @@ export class ContextManager {
   }
 
   loadProjectConfig(projectDir: string): Record<string, unknown> | null {
-    const configPath = path.join(projectDir, '.sdd-tool', 'config.yaml');
+    const configPath = path.join(projectDir, '.traytor', 'config.yaml');
     try {
       if (fs.existsSync(configPath)) {
         const content = fs.readFileSync(configPath, 'utf-8');

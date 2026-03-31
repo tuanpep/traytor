@@ -19,7 +19,7 @@ export const DEFAULT_CONFIG: Config = {
   mcp: {
     servers: [],
   },
-  dataDir: '~/.sdd-tool/data',
+  dataDir: '~/.traytor/data',
   logLevel: 'info',
   verification: {
     autoVerify: false,
@@ -28,7 +28,7 @@ export const DEFAULT_CONFIG: Config = {
   git: {
     autoCommit: {
       enabled: false,
-      messageTemplate: 'sdd: {taskId} - step {step} completed',
+      messageTemplate: 'traytor: {taskId} - step {step} completed',
     },
   },
   workflow: {
@@ -41,6 +41,6 @@ export const DEFAULT_CONFIG: Config = {
   },
   security: {
     useKeychain: true,
-    keychainService: 'com.traytor.sdd',
+    keychainService: 'com.traytor.app',
   },
 };

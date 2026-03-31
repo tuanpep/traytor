@@ -3,11 +3,12 @@ import type { Task } from '../models/task.js';
 import type { Phase, PhaseStatus } from '../models/phase.js';
 import type { Review } from '../models/review.js';
 import type { Verification } from '../models/verification.js';
-import { createPlanId, createPlanStepId } from '../models/plan.js';
 import { createTaskId } from '../models/task.js';
 import {
   TaskNotFoundError,
   PlanGenerationError,
+  SDDError,
+  ErrorCode,
   PhaseNotFoundError,
   PhaseGenerationError,
   VerificationError,
@@ -92,28 +93,6 @@ export class TaskService {
     task.status = 'completed';
     task.updatedAt = new Date().toISOString();
     await this.taskRepository.save(task);
-  }
-
-  async createDraftPlan(task: Task): Promise<Plan> {
-    void task;
-    return {
-      id: createPlanId(),
-      steps: [
-        {
-          id: createPlanStepId(0),
-          title: 'Scaffold command, service, and data layers',
-          description:
-            'Set up CLI commands and repositories so plan workflow can persist and retrieve tasks.',
-          files: [
-            'src/bin/sdd.ts',
-            'src/services/task.service.ts',
-            'src/data/repositories/task.repository.ts',
-          ],
-        },
-      ],
-      rationale: 'Initial architecture scaffold for Phase 1.',
-      iterations: [],
-    };
   }
 
   async getTask(taskId: string): Promise<Task> {
@@ -339,6 +318,14 @@ export class TaskService {
     const task = await this.taskRepository.findById(taskId);
     if (!task) {
       throw new TaskNotFoundError(taskId);
+    }
+
+    if (!task.phases) {
+      throw new SDDError(
+        ErrorCode.TASK_NOT_FOUND,
+        `Task "${taskId}" has no phases`,
+        'Create phases first using phases:add command'
+      );
     }
 
     const phase = this.getPhase(task, phaseOrder);

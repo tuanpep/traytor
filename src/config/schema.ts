@@ -46,13 +46,13 @@ const VerificationConfigSchema = z.object({
 
 const AutoCommitConfigSchema = z.object({
   enabled: z.boolean().default(false),
-  messageTemplate: z.string().default('sdd: {taskId} - step {step} completed'),
+  messageTemplate: z.string().default('traytor: {taskId} - step {step} completed'),
 });
 
 const GitConfigSchema = z.object({
   autoCommit: AutoCommitConfigSchema.default({
     enabled: false,
-    messageTemplate: 'sdd: {taskId} - step {step} completed',
+    messageTemplate: 'traytor: {taskId} - step {step} completed',
   }),
   diffRef: z.string().optional(),
 });
@@ -69,7 +69,7 @@ const CacheConfigSchema = z.object({
 
 const SecurityConfigSchema = z.object({
   useKeychain: z.boolean().default(true),
-  keychainService: z.string().default('com.traytor.sdd'),
+  keychainService: z.string().default('com.traytor.app'),
 });
 
 const YOLOConfigSchema = z.object({
@@ -135,15 +135,15 @@ export const ConfigSchema = z.object({
   agents: z.array(AgentConfigSchema).default([]),
   templates: TemplatesConfigSchema.default({}),
   mcp: MCPConfigSchema.default({ servers: [] }),
-  dataDir: z.string().default('~/.sdd-tool/data'),
+  dataDir: z.string().default('~/.traytor/data'),
   logLevel: z.enum(['debug', 'info', 'warn', 'error', 'silent']).default('info'),
   verification: VerificationConfigSchema.default({ autoVerify: false, maxRetries: 3 }),
   git: GitConfigSchema.default({
-    autoCommit: { enabled: false, messageTemplate: 'sdd: {taskId} - step {step} completed' },
+    autoCommit: { enabled: false, messageTemplate: 'traytor: {taskId} - step {step} completed' },
   }),
   workflow: WorkflowConfigSchema.default({ default: 'default' }),
   cache: CacheConfigSchema.default({ ttlMs: 5 * 60 * 1000, maxEntries: 500, persist: true }),
-  security: SecurityConfigSchema.default({ useKeychain: true, keychainService: 'com.traytor.sdd' }),
+  security: SecurityConfigSchema.default({ useKeychain: true, keychainService: 'com.traytor.app' }),
   yolo: YOLOConfigSchema.optional(),
 });
 

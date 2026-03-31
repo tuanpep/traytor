@@ -2,11 +2,41 @@ import chalk from 'chalk';
 import { GitHubService } from '../integrations/github/github-service.js';
 import { TicketAssistService } from '../integrations/github/ticket-assist-service.js';
 import type { PlanGenerator } from '../services/plan-generator.js';
-import type { TaskRepository } from '../data/repositories/task.repository.js';
+import type { TaskService } from '../services/task.service.js';
 
 export interface TicketAssistContext {
   planGenerator: PlanGenerator;
-  taskRepository: TaskRepository;
+  taskService: TaskService;
+}
+
+export async function runTicketAssist(
+  ctx: TicketAssistContext,
+  subcommand: string,
+  owner: string,
+  repo: string,
+  options?: { label?: string; issueNumber?: number; taskId?: string }
+): Promise<void> {
+  switch (subcommand) {
+    case 'list':
+      await runTicketAssistList(ctx, owner, repo, { label: options?.label });
+      break;
+    case 'plan':
+      if (!options?.issueNumber) {
+        console.error(chalk.red('--issue-number is required for plan subcommand'));
+        return;
+      }
+      await runTicketAssistPlan(ctx, owner, repo, options.issueNumber);
+      break;
+    case 'show':
+      if (!options?.issueNumber) {
+        console.error(chalk.red('--issue-number is required for show subcommand'));
+        return;
+      }
+      await runTicketAssistShow(owner, repo, options.issueNumber);
+      break;
+    default:
+      console.error(chalk.red(`Unknown subcommand: ${subcommand}. Use: list, plan, show`));
+  }
 }
 
 export async function runTicketAssistList(
@@ -58,7 +88,7 @@ export async function runTicketAssistPlan(
 ): Promise<void> {
   const githubService = new GitHubService();
   const ticketAssist = new TicketAssistService(githubService);
-  ticketAssist.configure(ctx.planGenerator, ctx.taskRepository);
+  ticketAssist.configure(ctx.planGenerator, ctx.taskService['taskRepository']);
 
   if (!ticketAssist.isConfigured()) {
     console.log(
@@ -87,7 +117,7 @@ export async function runTicketAssistPlan(
       `  Comment:     ${result.commentPosted ? chalk.green('posted') : chalk.gray('not posted')}`
     );
     console.log('');
-    console.log(chalk.dim(`Run 'sdd exec ${result.taskId}' to implement this plan.`));
+    console.log(chalk.dim(`Run 'traytor exec ${result.taskId}' to implement this plan.`));
   } catch (error) {
     console.error(
       chalk.red(`Failed to create plan: ${error instanceof Error ? error.message : String(error)}`)

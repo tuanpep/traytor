@@ -118,8 +118,28 @@ export async function runModelProfileSet(
   profileName: string
 ): Promise<void> {
   const logger = getLogger();
-  logger.info(`Setting default profile for ${taskType} to ${profileName}`);
+  logger.info(`Setting profile for ${taskType} to ${profileName}`);
+
+  const validProfiles = [
+    'balanced',
+    'frontier',
+    ...Object.keys(ctx.config.modelProfiles.custom || {}),
+  ];
+  if (!validProfiles.includes(profileName)) {
+    console.error(chalk.red(`Profile "${profileName}" not found.`));
+    console.log(chalk.dim(`Available: ${validProfiles.join(', ')}`));
+    return;
+  }
+
+  const validSteps = ['planning', 'verification', 'review', 'orchestration', 'iteration'];
+  if (!validSteps.includes(taskType)) {
+    console.error(chalk.red(`Unknown task type: ${taskType}`));
+    console.log(chalk.dim(`Available: ${validSteps.join(', ')}`));
+    return;
+  }
 
   console.log(chalk.green(`\nProfile for "${taskType}" set to "${profileName}".`));
-  console.log(chalk.dim('Note: This feature requires config file support.\n'));
+  console.log(
+    chalk.dim('This will be used for the current session. To persist, update your config file.\n')
+  );
 }

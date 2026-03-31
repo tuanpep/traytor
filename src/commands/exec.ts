@@ -49,7 +49,7 @@ export async function runExecCommand(
   if (!task.plan) {
     console.error(
       chalk.red(
-        `Task "${taskId}" has no plan. Generate a plan first with \`sdd plan "${task.query}"\``
+        `Task "${taskId}" has no plan. Generate a plan first with \`traytor plan "${task.query}"\``
       )
     );
     return;
@@ -102,7 +102,7 @@ export async function runExecCommand(
     }
 
     console.log('');
-    console.log(chalk.dim(`Run \`sdd verify ${taskId}\` to verify the implementation.`));
+    console.log(chalk.dim(`Run \`traytor verify ${taskId}\` to verify the implementation.`));
   } catch (error) {
     spinner.fail(chalk.red('Execution failed'));
     if (error instanceof AgentExecutionError) {
@@ -221,14 +221,14 @@ async function executePhase(
 
     console.log('');
     console.log(
-      chalk.dim(`Run \`sdd verify ${task.id} --phase ${phaseOrder}\` to verify this phase.`)
+      chalk.dim(`Run \`traytor verify ${task.id} --phase ${phaseOrder}\` to verify this phase.`)
     );
 
     // Show next phase hint
     const nextPhase = task.phases!.find((p) => p.order === phaseOrder + 1);
     if (nextPhase) {
       console.log(
-        chalk.dim(`Next: \`sdd exec ${task.id} --phase ${nextPhase.order}\` (${nextPhase.name})`)
+        chalk.dim(`Next: \`traytor exec ${task.id} --phase ${nextPhase.order}\` (${nextPhase.name})`)
       );
     }
   } catch (error) {

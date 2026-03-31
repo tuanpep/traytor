@@ -57,8 +57,8 @@ export async function runConfigGetKey(provider: string): Promise<void> {
     console.log(chalk.dim(`Key length: ${apiKey.length} characters`));
   } else {
     console.log(chalk.yellow(`No API key found for ${provider}.`));
-    console.log(chalk.dim(`Set one with: sdd config set-key ${provider} <key>`));
-    console.log(chalk.dim(`Or use the environment variable: ${provider === 'anthropic' ? 'ANTHROPIC_API_KEY' : 'OPENAI_API_KEY'}`));
+    console.log(chalk.dim(`Set one with: traytor config set-key ${provider} <key>`));
+    console.log(chalk.dim(`Or use the environment variable: ${provider === 'anthropic' ? 'TRAYTOR_ANTHROPIC_API_KEY' : 'TRAYTOR_OPENAI_API_KEY'}`));
   }
 }
 
