@@ -1,0 +1,278 @@
+import { spawn, type ChildProcess } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { getLogger } from '../utils/logger.js';
+import { AgentExecutionError } from '../utils/errors.js';
+import { TemplateEngine } from './template-engine.js';
+import type { Plan } from '../models/plan.js';
+import type { Task } from '../models/task.js';
+import type { Config, AgentConfig } from '../config/schema.js';
+
+// ─── Agent Execution Options ────────────────────────────────────────────────
+
+export interface AgentExecutionOptions {
+  /** Working directory for the agent process */
+  cwd?: string;
+  /** Timeout in milliseconds (default: from config or 300000) */
+  timeout?: number;
+  /** Extra environment variables to pass to the agent */
+  extraEnv?: Record<string, string>;
+}
+
+export interface AgentExecutionResult {
+  success: boolean;
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+  durationMs: number;
+}
+
+// ─── Default Agent Config ───────────────────────────────────────────────────
+
+const DEFAULT_AGENT_CONFIG: AgentConfig = {
+  name: 'claude-code',
+  command: 'claude',
+  args: ['--dangerously-skip-permissions'],
+  env: {},
+  timeout: 300_000,
+};
+
+// ─── AgentService ───────────────────────────────────────────────────────────
+
+export class AgentService {
+  private logger = getLogger();
+  private templateEngine: TemplateEngine;
+
+  constructor(
+    private readonly config: Config
+  ) {
+    this.templateEngine = new TemplateEngine();
+  }
+
+  /**
+   * Execute a task by handing off to the configured agent (Claude Code CLI).
+   * Renders the plan into a prompt, sets environment variables, and spawns the process.
+   */
+  async execute(task: Task, options: AgentExecutionOptions = {}): Promise<AgentExecutionResult> {
+    const agentConfig = this.resolveAgentConfig();
+    const plan = task.plan;
+
+    if (!plan) {
+      throw new AgentExecutionError(
+        agentConfig.name,
+        `Task "${task.id}" has no plan to execute`,
+        { taskId: task.id }
+      );
+    }
+
+    // 1. Render the plan into an agent prompt
+    const prompt = this.renderPlanPrompt(task, plan);
+
+    // 2. Create a temp file with the prompt
+    const tmpFile = this.writeTempFile(prompt);
+
+    // 3. Build environment variables
+    const env = this.buildEnvVars(task, prompt, tmpFile, options.extraEnv);
+
+    // 4. Spawn the agent process
+    const timeout = options.timeout ?? agentConfig.timeout;
+    const result = await this.spawnAgent(agentConfig, env, timeout, options.cwd);
+
+    // 5. Schedule temp file cleanup (after 30 seconds)
+    this.scheduleTempFileCleanup(tmpFile);
+
+    return result;
+  }
+
+  /**
+   * Render the plan into a structured prompt for the agent.
+   */
+  renderPlanPrompt(task: Task, plan: Plan): string {
+    const steps = plan.steps.map((step) => ({
+      title: step.title,
+      description: step.description,
+      files: step.files,
+    }));
+
+    const systemPrompt = `You are implementing the following plan. Follow each step carefully.
+
+Task: ${task.query}
+
+Steps:
+${plan.steps.map((step, i) => `${i + 1}. ${step.title}\n   ${step.description}`).join('\n\n')}
+
+${plan.rationale ? `Rationale: ${plan.rationale}` : ''}
+
+Implement all steps completely. Do not skip any steps.`;
+
+    const prompt = this.templateEngine.renderPlanTemplate({
+      query: task.query,
+      projectDescription: `Implementation plan for: ${task.query}`,
+      projectContext: {
+        totalFiles: 0,
+        totalLines: 0,
+        languages: {},
+      },
+      relevantFiles: steps.flatMap((step) =>
+        step.files.map((file) => ({
+          relativePath: file,
+          language: path.extname(file).slice(1) || 'unknown',
+          symbols: [],
+          content: '',
+        }))
+      ),
+      agentsMd: null,
+    });
+
+    // Combine system prompt with the rendered template
+    return `${systemPrompt}\n\n---\n\n${prompt}`;
+  }
+
+  /**
+   * Resolve the agent configuration from config or use defaults.
+   */
+  private resolveAgentConfig(): AgentConfig {
+    if (this.config.agents.length > 0) {
+      // Use the first configured agent
+      return this.config.agents[0];
+    }
+    return DEFAULT_AGENT_CONFIG;
+  }
+
+  /**
+   * Write the prompt to a temporary file and return its path.
+   */
+  private writeTempFile(prompt: string): string {
+    const tmpDir = os.tmpdir();
+    const tmpPath = path.join(tmpDir, `sdd-prompt-${Date.now()}.txt`);
+    fs.writeFileSync(tmpPath, prompt, 'utf-8');
+    this.logger.debug(`Prompt written to temp file: ${tmpPath}`);
+    return tmpPath;
+  }
+
+  /**
+   * Build environment variables for the agent process.
+   */
+  private buildEnvVars(
+    task: Task,
+    prompt: string,
+    tmpFile: string,
+    extraEnv?: Record<string, string>
+  ): Record<string, string> {
+    const env: Record<string, string> = {
+      ...process.env as Record<string, string>,
+      TRAYCER_PROMPT: prompt,
+      TRAYCER_PROMPT_TMP_FILE: tmpFile,
+      TRAYCER_TASK_ID: task.id,
+      TRAYCER_SYSTEM_PROMPT: `Implement the plan for task ${task.id}: ${task.query}`,
+    };
+
+    if (extraEnv) {
+      Object.assign(env, extraEnv);
+    }
+
+    return env;
+  }
+
+  /**
+   * Spawn the agent CLI process and capture output.
+   */
+  private spawnAgent(
+    agentConfig: AgentConfig,
+    env: Record<string, string>,
+    timeout: number,
+    cwd?: string
+  ): Promise<AgentExecutionResult> {
+    return new Promise((resolve, reject) => {
+      this.logger.info(`Spawning agent: ${agentConfig.command} ${agentConfig.args.join(' ')}`);
+
+      let child: ChildProcess;
+      try {
+        child = spawn(agentConfig.command, agentConfig.args, {
+          env,
+          cwd: cwd || process.cwd(),
+          stdio: ['pipe', 'pipe', 'pipe'],
+        });
+      } catch (error) {
+        reject(
+          new AgentExecutionError(
+            agentConfig.name,
+            `Failed to spawn agent: ${error instanceof Error ? error.message : String(error)}`,
+            { command: agentConfig.command }
+          )
+        );
+        return;
+      }
+
+      const stdoutChunks: Buffer[] = [];
+      const stderrChunks: Buffer[] = [];
+      const startTime = Date.now();
+
+      child.stdout?.on('data', (chunk: Buffer) => {
+        stdoutChunks.push(chunk);
+        // Stream output to the user in real-time
+        process.stdout.write(chunk);
+      });
+
+      child.stderr?.on('data', (chunk: Buffer) => {
+        stderrChunks.push(chunk);
+        process.stderr.write(chunk);
+      });
+
+      // Set up timeout
+      const timer = setTimeout(() => {
+        this.logger.warn(`Agent timed out after ${timeout}ms, killing process...`);
+        child.kill('SIGKILL');
+      }, timeout);
+
+      child.on('error', (error) => {
+        clearTimeout(timer);
+        reject(
+          new AgentExecutionError(
+            agentConfig.name,
+            `Agent process error: ${error.message}`,
+            { command: agentConfig.command }
+          )
+        );
+      });
+
+      child.on('close', (code) => {
+        clearTimeout(timer);
+        const durationMs = Date.now() - startTime;
+        const stdout = Buffer.concat(stdoutChunks).toString('utf-8');
+        const stderr = Buffer.concat(stderrChunks).toString('utf-8');
+
+        this.logger.info(`Agent exited with code ${code} in ${durationMs}ms`);
+
+        resolve({
+          success: code === 0,
+          exitCode: code,
+          stdout,
+          stderr,
+          durationMs,
+        });
+      });
+
+      child.on('exit', () => {
+        // 'close' is the primary event, this handles edge cases
+      });
+    });
+  }
+
+  /**
+   * Schedule temp file cleanup after 30 seconds.
+   */
+  private scheduleTempFileCleanup(tmpFile: string): void {
+    setTimeout(() => {
+      try {
+        if (fs.existsSync(tmpFile)) {
+          fs.unlinkSync(tmpFile);
+          this.logger.debug(`Cleaned up temp file: ${tmpFile}`);
+        }
+      } catch (error) {
+        this.logger.warn(`Failed to clean up temp file ${tmpFile}:`, error);
+      }
+    }, 30_000);
+  }
+}
