@@ -65,3 +65,40 @@ export const PlanSchema = z.object({
   rationale: z.string(),
   iterations: z.array(PlanIterationSchema),
 });
+
+// ─── Review Schemas ────────────────────────────────────────────────────────
+
+export const ReviewCategorySchema = z.enum(['bug', 'performance', 'security', 'clarity']);
+
+export const ReviewSeveritySchema = z.enum(['critical', 'major', 'minor']);
+
+export const ReviewScopeSchema = z.enum(['uncommitted', 'branch', 'files', 'all']);
+
+export const ReviewCommentSchema = z.object({
+  id: z.string(),
+  category: ReviewCategorySchema,
+  severity: ReviewSeveritySchema,
+  file: z.string().optional(),
+  line: z.number().optional(),
+  message: z.string(),
+  suggestion: z.string().optional(),
+});
+
+export const ReviewSummarySchema = z.object({
+  totalComments: z.number(),
+  byCategory: z.record(ReviewCategorySchema, z.number()),
+  bySeverity: z.record(ReviewSeveritySchema, z.number()),
+  overallAssessment: z.string(),
+  keyFindings: z.array(z.string()),
+});
+
+export const ReviewSchema = z.object({
+  id: z.string(),
+  taskId: z.string(),
+  query: z.string(),
+  scope: ReviewScopeSchema,
+  files: z.array(z.string()),
+  comments: z.array(ReviewCommentSchema),
+  summary: ReviewSummarySchema,
+  timestamp: z.string(),
+});

@@ -46,6 +46,21 @@ function applyEnvOverrides(config: Config): Config {
   if (process.env.SDD_ANTHROPIC_MODEL) {
     result.anthropic = { ...result.anthropic, model: process.env.SDD_ANTHROPIC_MODEL };
   }
+  if (process.env.SDD_ANTHROPIC_MAX_TOKENS) {
+    result.anthropic = {
+      ...result.anthropic,
+      maxTokens: parseInt(process.env.SDD_ANTHROPIC_MAX_TOKENS, 10),
+    };
+  }
+  if (process.env.SDD_ANTHROPIC_TEMPERATURE) {
+    result.anthropic = {
+      ...result.anthropic,
+      temperature: parseFloat(process.env.SDD_ANTHROPIC_TEMPERATURE),
+    };
+  }
+  if (process.env.SDD_ANTHROPIC_BASE_URL) {
+    result.anthropic = { ...result.anthropic, baseURL: process.env.SDD_ANTHROPIC_BASE_URL };
+  }
 
   // OpenAI
   if (process.env.OPENAI_API_KEY) {
@@ -53,6 +68,50 @@ function applyEnvOverrides(config: Config): Config {
   }
   if (process.env.SDD_OPENAI_MODEL) {
     result.openai = { ...result.openai, model: process.env.SDD_OPENAI_MODEL };
+  }
+  if (process.env.SDD_OPENAI_MAX_TOKENS) {
+    result.openai = {
+      ...result.openai,
+      maxTokens: parseInt(process.env.SDD_OPENAI_MAX_TOKENS, 10),
+    };
+  }
+  if (process.env.SDD_OPENAI_TEMPERATURE) {
+    result.openai = {
+      ...result.openai,
+      temperature: parseFloat(process.env.SDD_OPENAI_TEMPERATURE),
+    };
+  }
+  if (process.env.OPENAI_BASE_URL) {
+    result.openai = { ...result.openai, baseURL: process.env.OPENAI_BASE_URL };
+  }
+
+  // OpenAI-compatible (Z.ai, Ollama, OpenRouter, Groq, etc.)
+  if (
+    process.env.COMPATIBLE_API_KEY ||
+    process.env.COMPATIBLE_MODEL ||
+    process.env.COMPATIBLE_BASE_URL
+  ) {
+    const existing = result.openaiCompatible || {
+      model: '',
+      baseURL: '',
+      maxTokens: 4096,
+      temperature: 0,
+    };
+    result.openaiCompatible = { ...existing };
+    if (process.env.COMPATIBLE_API_KEY) {
+      result.openaiCompatible.apiKey = process.env.COMPATIBLE_API_KEY;
+    }
+    if (process.env.COMPATIBLE_MODEL) {
+      result.openaiCompatible.model = process.env.COMPATIBLE_MODEL;
+    }
+    if (process.env.COMPATIBLE_BASE_URL) {
+      result.openaiCompatible.baseURL = process.env.COMPATIBLE_BASE_URL;
+    }
+  }
+
+  // Default agent
+  if (process.env.SDD_DEFAULT_AGENT) {
+    result.defaultAgent = process.env.SDD_DEFAULT_AGENT;
   }
 
   // Log level
@@ -79,7 +138,6 @@ async function applySecureStorageOverrides(config: Config): Promise<Config> {
   try {
     const secureStorage = new SecureStorage();
 
-    // Only check secure storage if API key is not already set via config or env
     if (!result.anthropic.apiKey) {
       const key = await secureStorage.getApiKey('anthropic');
       if (key) {
@@ -96,7 +154,9 @@ async function applySecureStorageOverrides(config: Config): Promise<Config> {
       }
     }
   } catch (error) {
-    logger.warn(`Secure storage unavailable, using config/env only: ${error instanceof Error ? error.message : String(error)}`);
+    logger.warn(
+      `Secure storage unavailable, using config/env only: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 
   return result;
@@ -187,7 +247,7 @@ export class ConfigLoader {
       logger.debug('Applied environment variable overrides');
     }
 
-    // Step 5: Apply secure storage overrides (API keys from keychain/encrypted file)
+    // Step 5: Apply secure storage overrides
     merged = await applySecureStorageOverrides(merged);
 
     // Step 6: Validate with Zod

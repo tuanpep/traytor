@@ -8,6 +8,7 @@ export interface AnthropicProviderConfig {
   model: string;
   maxTokens: number;
   temperature: number;
+  baseURL?: string;
 }
 
 export class AnthropicProvider implements LLMProvider {
@@ -19,18 +20,15 @@ export class AnthropicProvider implements LLMProvider {
     this.config = config;
 
     if (!config.apiKey) {
-      throw new LLMProviderError(
-        this.name,
-        'API key is not configured',
-        {
-          suggestion:
-            'Set the ANTHROPIC_API_KEY environment variable or add anthropic.apiKey to your config file',
-        }
-      );
+      throw new LLMProviderError(this.name, 'API key is not configured', {
+        suggestion:
+          'Set the ANTHROPIC_API_KEY environment variable or add anthropic.apiKey to your config file',
+      });
     }
 
     this.client = new Anthropic({
       apiKey: config.apiKey,
+      baseURL: config.baseURL,
     });
   }
 
@@ -61,7 +59,9 @@ export class AnthropicProvider implements LLMProvider {
         .map((block) => block.text)
         .join('');
 
-      logger.debug(`Anthropic complete response: ${response.usage.input_tokens} input tokens, ${response.usage.output_tokens} output tokens`);
+      logger.debug(
+        `Anthropic complete response: ${response.usage.input_tokens} input tokens, ${response.usage.output_tokens} output tokens`
+      );
 
       return {
         content,
@@ -114,7 +114,9 @@ export class AnthropicProvider implements LLMProvider {
 
       responseModel = finalMessage.model;
 
-      logger.debug(`Anthropic stream response: ${finalMessage.usage.input_tokens} input tokens, ${finalMessage.usage.output_tokens} output tokens`);
+      logger.debug(
+        `Anthropic stream response: ${finalMessage.usage.input_tokens} input tokens, ${finalMessage.usage.output_tokens} output tokens`
+      );
 
       return {
         content: chunks.join(''),
@@ -135,14 +137,10 @@ export class AnthropicProvider implements LLMProvider {
     }
 
     if (error instanceof Anthropic.APIError) {
-      return new LLMProviderError(
-        this.name,
-        `${error.status} ${error.message}`,
-        {
-          status: error.status,
-          retryable: error.status === 429 || error.status >= 500,
-        }
-      );
+      return new LLMProviderError(this.name, `${error.status} ${error.message}`, {
+        status: error.status,
+        retryable: error.status === 429 || error.status >= 500,
+      });
     }
 
     const message = error instanceof Error ? error.message : String(error);

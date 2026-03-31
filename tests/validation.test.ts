@@ -3,8 +3,6 @@ import { describe, expect, it } from 'vitest';
 import {
   TaskQuerySchema,
   TaskContextSchema,
-  VerificationCategorySchema,
-  VerificationCommentStatusSchema,
   VerificationCommentSchema,
   VerificationSchema,
   PlanStepSchema,

@@ -4,7 +4,6 @@ import type { TaskService } from '../services/task.service.js';
 import type { AgentService } from '../services/agent-service.js';
 import type { Phase } from '../models/phase.js';
 import { formatPhase } from '../ui/cli/formatter.js';
-import { getLogger } from '../utils/logger.js';
 import { TaskNotFoundError, AgentExecutionError, PhaseNotFoundError } from '../utils/errors.js';
 
 export interface ExecCommandOptions {
@@ -27,10 +26,6 @@ export async function runExecCommand(
   taskId: string,
   options: ExecCommandOptions = {}
 ): Promise<void> {
-  const logger = getLogger();
-
-  logger.info(`Starting execution for task: ${taskId}`);
-
   // 1. Load the task
   let task;
   try {
@@ -52,7 +47,11 @@ export async function runExecCommand(
 
   // 3. Standard plan-based execution
   if (!task.plan) {
-    console.error(chalk.red(`Task "${taskId}" has no plan. Generate a plan first with \`sdd plan "${task.query}"\``));
+    console.error(
+      chalk.red(
+        `Task "${taskId}" has no plan. Generate a plan first with \`sdd plan "${task.query}"\``
+      )
+    );
     return;
   }
 
@@ -128,8 +127,6 @@ async function executePhase(
   phaseOrder: number,
   options: ExecCommandOptions
 ): Promise<void> {
-  const logger = getLogger();
-
   // 1. Validate task has phases
   if (task.type !== 'phases' || !task.phases || task.phases.length === 0) {
     console.error(chalk.red(`Task "${task.id}" is not a phases task or has no phases.`));
@@ -151,7 +148,9 @@ async function executePhase(
 
   // 3. Validate phase has a plan
   if (!phase.plan) {
-    console.error(chalk.red(`Phase ${phaseOrder} has no plan. Generate a plan for this phase first.`));
+    console.error(
+      chalk.red(`Phase ${phaseOrder} has no plan. Generate a plan for this phase first.`)
+    );
     return;
   }
 
@@ -221,12 +220,16 @@ async function executePhase(
     }
 
     console.log('');
-    console.log(chalk.dim(`Run \`sdd verify ${task.id} --phase ${phaseOrder}\` to verify this phase.`));
+    console.log(
+      chalk.dim(`Run \`sdd verify ${task.id} --phase ${phaseOrder}\` to verify this phase.`)
+    );
 
     // Show next phase hint
     const nextPhase = task.phases!.find((p) => p.order === phaseOrder + 1);
     if (nextPhase) {
-      console.log(chalk.dim(`Next: \`sdd exec ${task.id} --phase ${nextPhase.order}\` (${nextPhase.name})`));
+      console.log(
+        chalk.dim(`Next: \`sdd exec ${task.id} --phase ${nextPhase.order}\` (${nextPhase.name})`)
+      );
     }
   } catch (error) {
     spinner.fail(chalk.red(`Phase ${phaseOrder} execution failed`));

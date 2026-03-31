@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { TaskService } from '../services/task.service.js';
 import type { ReviewGenerator } from '../services/review-generator.js';
+import type { AgentService } from '../services/agent-service.js';
 import { formatReview, formatReviewMarkdown, formatReviewSummary } from '../ui/cli/formatter.js';
 import { getLogger } from '../utils/logger.js';
 import { VerificationError } from '../utils/errors.js';
@@ -14,6 +15,12 @@ export interface ReviewCommandOptions {
   output?: 'terminal' | 'markdown' | 'json';
   outputFile?: string;
   cwd?: string;
+  /** Fix mode: send review comments to agent for fixing */
+  fix?: boolean;
+  /** Comma-separated comment IDs to fix (omit to fix all) */
+  fixCommentIds?: string;
+  /** Template for fix prompt */
+  fixTemplate?: string;
 }
 
 /**
@@ -27,6 +34,12 @@ export async function runReviewCommand(
 ): Promise<void> {
   const logger = getLogger();
   const outputFormat = options.output ?? 'terminal';
+
+  // Handle fix mode for existing review
+  if (options.fix && !query) {
+    await runReviewFix(taskService, reviewGenerator, options);
+    return;
+  }
 
   logger.info(`Starting code review for: "${query}"`);
 
@@ -107,5 +120,100 @@ export async function runReviewCommand(
       console.error(chalk.red(error.message));
     }
     throw error;
+  }
+}
+
+/**
+ * Send review comments to an agent for fixing.
+ */
+async function runReviewFix(
+  taskService: TaskService,
+  reviewGenerator: ReviewGenerator,
+  options: ReviewCommandOptions
+): Promise<void> {
+  const logger = getLogger();
+
+  if (!options.fixCommentIds) {
+    console.error(
+      chalk.red(
+        '--fix requires a task ID. Usage: sdd review --fix <task-id> [--fix-comment-ids <ids>]'
+      )
+    );
+    console.log(
+      chalk.dim('Example: sdd review --fix task_123 --fix-comment-ids rcomment_1,rcomment_2')
+    );
+    return;
+  }
+
+  const taskId = options.fixCommentIds;
+
+  logger.info(`Fixing review comments for task: ${taskId}`);
+
+  // 1. Load the task and review
+  const task = await taskService.getTask(taskId);
+  if (!task.review) {
+    console.error(chalk.red(`Task "${taskId}" has no review to fix.`));
+    return;
+  }
+
+  const review = task.review;
+  const commentIds = options.fixCommentIds
+    ? options.fixCommentIds.split(',').map((id) => id.trim())
+    : undefined;
+
+  const selectedComments = commentIds
+    ? review.comments.filter((c) => commentIds.includes(c.id))
+    : review.comments;
+
+  if (selectedComments.length === 0) {
+    console.error(chalk.red('No comments found matching the specified IDs.'));
+    return;
+  }
+
+  // 2. Execute fixes via agent
+  const fixPrompt = reviewGenerator.generateFixPrompt(review, commentIds);
+
+  const fixTask = {
+    id: `review_fix_${review.id}`,
+    type: 'review' as const,
+    query: fixPrompt,
+    status: 'in_progress' as const,
+    context: task.context,
+    executions: [],
+    history: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  const spinner = ora(`Fixing ${selectedComments.length} review comments...`).start();
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const agentService = (taskService as any).agentService as AgentService;
+    if (!agentService) {
+      spinner.fail(chalk.red('Agent service not available for review fix execution'));
+      console.log(chalk.dim('Falling back to prompt-only mode...'));
+      console.log(chalk.bold('\nReview Fix Prompt:'));
+      console.log(chalk.dim('─'.repeat(60)));
+      console.log(fixPrompt);
+      console.log(chalk.dim('─'.repeat(60)));
+      return;
+    }
+
+    const execResult = await agentService.execute(fixTask, {
+      cwd: options.cwd || process.cwd(),
+    });
+
+    if (execResult.success) {
+      spinner.succeed(chalk.green(`${selectedComments.length} review comments fixed!`));
+    } else {
+      spinner.fail(chalk.red('Review fix failed'));
+      if (execResult.stderr) {
+        console.error(chalk.dim(execResult.stderr));
+      }
+    }
+  } catch (error) {
+    spinner.fail(chalk.red('Review fix execution failed'));
+    console.error(chalk.red(error instanceof Error ? error.message : String(error)));
   }
 }

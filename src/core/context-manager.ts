@@ -28,10 +28,21 @@ export interface ProjectContext {
   packageJson: Record<string, unknown> | null;
 }
 
+export interface ProjectContextSync {
+  workingDirectory: string;
+  summary: {
+    totalFiles: number;
+    totalLines: number;
+    languages: Record<string, { files: number; lines: number }>;
+  };
+  agentsMd: string | null;
+  packageJson: Record<string, unknown> | null;
+}
+
 export class ContextManager {
   private logger = getLogger();
 
-  async gather(workingDirectory: string, _task?: Task): Promise<ProjectContext> {
+  async gather(workingDirectory: string, task?: Task): Promise<ProjectContext> {
     this.logger.info(`Gathering context from ${workingDirectory}`);
 
     const resolvedDir = path.resolve(workingDirectory);
@@ -45,6 +56,9 @@ export class ContextManager {
     const agentsMd = agentsMdResult ? agentsMdResult.raw : null;
     const agentsMdParsed = agentsMdResult ?? null;
 
+    // Use task if provided (reserved for future task-aware context gathering)
+    void task;
+
     return {
       workingDirectory: resolvedDir,
       summary: codebase.summary,
@@ -55,7 +69,10 @@ export class ContextManager {
     };
   }
 
-  async gatherWithCodebase(workingDirectory: string, task?: Task): Promise<ProjectContext & { codebase: Codebase }> {
+  async gatherWithCodebase(
+    workingDirectory: string,
+    task?: Task
+  ): Promise<ProjectContext & { codebase: Codebase }> {
     this.logger.info(`Gathering context with codebase from ${workingDirectory}`);
 
     const resolvedDir = path.resolve(workingDirectory);
@@ -68,6 +85,9 @@ export class ContextManager {
 
     const agentsMd = agentsMdResult ? agentsMdResult.raw : null;
     const agentsMdParsed = agentsMdResult ?? null;
+
+    // Use task if provided (reserved for future task-aware context gathering)
+    void task;
 
     return {
       workingDirectory: resolvedDir,
@@ -83,6 +103,7 @@ export class ContextManager {
   findAgentsMd(startDir: string): AgentsMdParseResult | null {
     let current = path.resolve(startDir);
 
+    // eslint-disable-next-line no-constant-condition
     while (true) {
       const agentsPath = path.join(current, 'AGENTS.md');
       try {
@@ -153,7 +174,11 @@ export class ContextManager {
           content: trimmed,
           raw: line,
         });
-      } else if (trimmed.match(/[*].*\.(?:ts|tsx|js|jsx|py|go|rs|java|vue|svelte|json|yaml|yml|md|css|scss|html|xml|spec|test)[*]?/)) {
+      } else if (
+        trimmed.match(
+          /[*].*\.(?:ts|tsx|js|jsx|py|go|rs|java|vue|svelte|json|yaml|yml|md|css|scss|html|xml|spec|test)[*]?/
+        )
+      ) {
         directives.push({
           type: 'file_pattern',
           content: trimmed,
@@ -207,5 +232,23 @@ export class ContextManager {
       this.logger.warn(`Failed to load package.json: ${error}`);
     }
     return null;
+  }
+
+  gatherSync(workingDirectory: string): ProjectContextSync {
+    const resolvedDir = path.resolve(workingDirectory);
+    const analyzer = new FileAnalyzer(resolvedDir);
+    const codebase = analyzer.analyzeSync();
+
+    const agentsMdResult = this.findAgentsMd(resolvedDir);
+    const packageJson = this.loadPackageJson(resolvedDir);
+
+    const agentsMd = agentsMdResult ? agentsMdResult.raw : null;
+
+    return {
+      workingDirectory: resolvedDir,
+      summary: codebase.summary,
+      agentsMd,
+      packageJson,
+    };
   }
 }

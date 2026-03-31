@@ -7,12 +7,14 @@ import { WorkflowError, WorkflowNotFoundError, WorkflowStateError } from '../uti
 import type { GitService } from './git-service.js';
 import {
   DEFAULT_WORKFLOW,
+  TRAYCER_AGILE_WORKFLOW,
   createWorkflowId,
   createWorkflowStepDefId,
   type WorkflowDefinition,
   type WorkflowStepDefinition,
   type WorkflowState,
   type WorkflowDefinitionFile,
+  type AgentMode,
 } from '../models/workflow.js';
 
 const WORKFLOWS_DIR_NAME = 'workflows';
@@ -35,9 +37,13 @@ export class WorkflowEngine {
   private states: Map<string, WorkflowState> = new Map();
 
   constructor(options: WorkflowEngineOptions = {}) {
-    this.workflowsDir = path.join(options.dataDir ?? path.join(os.homedir(), '.sdd-tool', 'data'), WORKFLOWS_DIR_NAME);
+    this.workflowsDir = path.join(
+      options.dataDir ?? path.join(os.homedir(), '.sdd-tool', 'data'),
+      WORKFLOWS_DIR_NAME
+    );
     this.gitService = options.gitService;
     this.definitions.set(DEFAULT_WORKFLOW.name, DEFAULT_WORKFLOW);
+    this.definitions.set(TRAYCER_AGILE_WORKFLOW.name, TRAYCER_AGILE_WORKFLOW);
   }
 
   /**
@@ -46,7 +52,9 @@ export class WorkflowEngine {
   async initialize(): Promise<void> {
     try {
       if (fs.existsSync(this.workflowsDir)) {
-        const files = fs.readdirSync(this.workflowsDir).filter((f) => f.endsWith('.yaml') || f.endsWith('.yml'));
+        const files = fs
+          .readdirSync(this.workflowsDir)
+          .filter((f) => f.endsWith('.yaml') || f.endsWith('.yml'));
         for (const file of files) {
           try {
             const content = fs.readFileSync(path.join(this.workflowsDir, file), 'utf-8');
@@ -55,12 +63,16 @@ export class WorkflowEngine {
             this.definitions.set(definition.name, definition);
             this.logger.debug(`Loaded custom workflow: ${definition.name}`);
           } catch (error) {
-            this.logger.warn(`Failed to load workflow from ${file}: ${error instanceof Error ? error.message : String(error)}`);
+            this.logger.warn(
+              `Failed to load workflow from ${file}: ${error instanceof Error ? error.message : String(error)}`
+            );
           }
         }
       }
     } catch (error) {
-      this.logger.warn(`Failed to initialize workflow engine: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.warn(
+        `Failed to initialize workflow engine: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -139,7 +151,9 @@ export class WorkflowEngine {
     const state = this.getWorkflowState(workflowId);
 
     if (state.status !== 'in_progress') {
-      throw new WorkflowStateError(`Workflow ${workflowId} is not in progress (status: ${state.status})`);
+      throw new WorkflowStateError(
+        `Workflow ${workflowId} is not in progress (status: ${state.status})`
+      );
     }
 
     const currentStepState = state.stepStates[state.currentStepIndex];
@@ -161,7 +175,9 @@ export class WorkflowEngine {
       nextStepState.startedAt = new Date().toISOString();
       state.updatedAt = new Date().toISOString();
 
-      this.logger.info(`Workflow ${workflowId} advanced to step ${nextIndex + 1}: ${state.definition.steps[nextIndex].name}`);
+      this.logger.info(
+        `Workflow ${workflowId} advanced to step ${nextIndex + 1}: ${state.definition.steps[nextIndex].name}`
+      );
     } else {
       // All steps completed
       state.status = 'completed';
@@ -182,7 +198,9 @@ export class WorkflowEngine {
     const state = this.getWorkflowState(workflowId);
 
     if (state.status !== 'in_progress') {
-      throw new WorkflowStateError(`Workflow ${workflowId} is not in progress (status: ${state.status})`);
+      throw new WorkflowStateError(
+        `Workflow ${workflowId} is not in progress (status: ${state.status})`
+      );
     }
 
     const step = state.definition.steps[state.currentStepIndex];
@@ -220,7 +238,9 @@ export class WorkflowEngine {
     const state = this.getWorkflowState(workflowId);
 
     if (state.status !== 'in_progress') {
-      throw new WorkflowStateError(`Workflow ${workflowId} is not in progress (status: ${state.status})`);
+      throw new WorkflowStateError(
+        `Workflow ${workflowId} is not in progress (status: ${state.status})`
+      );
     }
 
     state.status = 'paused';
@@ -238,7 +258,9 @@ export class WorkflowEngine {
     const state = this.getWorkflowState(workflowId);
 
     if (state.status !== 'paused') {
-      throw new WorkflowStateError(`Workflow ${workflowId} is not paused (status: ${state.status})`);
+      throw new WorkflowStateError(
+        `Workflow ${workflowId} is not paused (status: ${state.status})`
+      );
     }
 
     state.status = 'in_progress';
@@ -286,7 +308,9 @@ export class WorkflowEngine {
    * Get the next step command to execute for a workflow.
    * Returns null if the workflow is completed.
    */
-  getNextCommand(workflowId: string): { command: string; stepName: string; stepIndex: number } | null {
+  getNextCommand(
+    workflowId: string
+  ): { command: string; stepName: string; stepIndex: number } | null {
     const state = this.getWorkflowState(workflowId);
     if (state.status !== 'in_progress') {
       return null;
@@ -298,6 +322,62 @@ export class WorkflowEngine {
       stepName: step.name,
       stepIndex: state.currentStepIndex,
     };
+  }
+
+  /**
+   * Get the content/instructions for a workflow step.
+   */
+  getStepContent(workflowName: string, stepName: string): string | undefined {
+    const workflow = this.definitions.get(workflowName);
+    if (!workflow) {
+      return undefined;
+    }
+
+    const step = workflow.steps.find((s) => s.name === stepName || s.customCommand === stepName);
+    return step?.content;
+  }
+
+  /**
+   * Get available next steps for the current step.
+   */
+  getNextSteps(workflowId: string): string[] {
+    const state = this.getWorkflowState(workflowId);
+    const step = state.definition.steps[state.currentStepIndex];
+    return step.nextSteps ?? [];
+  }
+
+  /**
+   * Get the agent mode for a step.
+   */
+  getStepAgentMode(workflowName: string, stepName: string): AgentMode | undefined {
+    const workflow = this.definitions.get(workflowName);
+    if (!workflow) {
+      return undefined;
+    }
+
+    const step = workflow.steps.find((s) => s.name === stepName || s.customCommand === stepName);
+    return step?.agentMode;
+  }
+
+  /**
+   * Get argument hints for a step.
+   */
+  getStepArgumentHints(workflowName: string, stepName: string) {
+    const workflow = this.definitions.get(workflowName);
+    if (!workflow) {
+      return [];
+    }
+
+    const step = workflow.steps.find((s) => s.name === stepName || s.customCommand === stepName);
+    return step?.argumentHints ?? [];
+  }
+
+  /**
+   * Check if a workflow is built-in.
+   */
+  isBuiltIn(workflowName: string): boolean {
+    const workflow = this.definitions.get(workflowName);
+    return workflow?.isBuiltIn ?? false;
   }
 
   /**
@@ -364,6 +444,10 @@ export class WorkflowEngine {
         command,
         customCommand: command === 'custom' ? step.customCommand : undefined,
         required: step.required ?? true,
+        nextSteps: step.nextSteps,
+        agentMode: step.agentMode,
+        content: step.content,
+        argumentHints: step.argumentHints,
       };
     });
 
@@ -410,7 +494,9 @@ export class WorkflowEngine {
       const filePath = this.getStateFilePath(state.workflowId);
       fs.writeFileSync(filePath, JSON.stringify(state, null, 2), 'utf-8');
     } catch (error) {
-      this.logger.warn(`Failed to save workflow state: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.warn(
+        `Failed to save workflow state: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -423,7 +509,9 @@ export class WorkflowEngine {
       const content = fs.readFileSync(filePath, 'utf-8');
       return JSON.parse(content) as WorkflowState;
     } catch (error) {
-      this.logger.warn(`Failed to load workflow state: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.warn(
+        `Failed to load workflow state: ${error instanceof Error ? error.message : String(error)}`
+      );
       return null;
     }
   }

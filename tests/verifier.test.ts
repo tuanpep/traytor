@@ -40,7 +40,11 @@ vi.mock('../src/core/file-analyzer.js', () => ({
       structure: { name: 'test', path: '/test', children: [], files: [] },
       imports: {},
       exports: {},
-      summary: { totalFiles: 2, totalLines: 30, languages: { typescript: { files: 2, lines: 30 } } },
+      summary: {
+        totalFiles: 2,
+        totalLines: 30,
+        languages: { typescript: { files: 2, lines: 30 } },
+      },
     }),
     findRelevantFiles: vi.fn().mockReturnValue([]),
   })),
@@ -65,6 +69,8 @@ function createMockLLMService(responseContent: string): any {
       usage: { inputTokens: 100, outputTokens: 200 },
       model: 'claude-sonnet-4-20250514',
     }),
+    getStepOptions: vi.fn().mockReturnValue({}),
+    getTotalUsage: vi.fn().mockReturnValue({ inputTokens: 0, outputTokens: 0, totalTokens: 0 }),
   };
 }
 
@@ -173,7 +179,8 @@ describe('Verifier', () => {
 
   it('should handle LLM failures with retries', async () => {
     const llmService = {
-      complete: vi.fn()
+      complete: vi
+        .fn()
         .mockRejectedValueOnce(new Error('API error'))
         .mockRejectedValueOnce(new Error('API error'))
         .mockResolvedValueOnce({
@@ -181,6 +188,7 @@ describe('Verifier', () => {
           usage: { inputTokens: 100, outputTokens: 200 },
           model: 'claude-sonnet-4-20250514',
         }),
+      getStepOptions: vi.fn().mockReturnValue({}),
     };
 
     const verifier = new Verifier(llmService as any, '/test');
@@ -197,6 +205,7 @@ describe('Verifier', () => {
   it('should exhaust retries and throw on persistent LLM failures', async () => {
     const llmService = {
       complete: vi.fn().mockRejectedValue(new Error('Persistent API error')),
+      getStepOptions: vi.fn().mockReturnValue({}),
     };
 
     const verifier = new Verifier(llmService as any, '/test');
@@ -301,6 +310,7 @@ describe('Verifier', () => {
   it('should respect custom maxRetries option', async () => {
     const llmService = {
       complete: vi.fn().mockRejectedValue(new Error('API error')),
+      getStepOptions: vi.fn().mockReturnValue({}),
     };
 
     const verifier = new Verifier(llmService as any, '/test');
@@ -308,9 +318,9 @@ describe('Verifier', () => {
 
     vi.spyOn(fs, 'readFileSync').mockReturnValue('export const test = 1;');
 
-    await expect(
-      verifier.verify(task, { maxRetries: 1 })
-    ).rejects.toThrow('LLM verification failed after 1 attempts');
+    await expect(verifier.verify(task, { maxRetries: 1 })).rejects.toThrow(
+      'LLM verification failed after 1 attempt'
+    );
 
     expect(llmService.complete).toHaveBeenCalledTimes(1);
   });

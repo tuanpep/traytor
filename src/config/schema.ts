@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const LLMProviderSchema = z.enum(['anthropic', 'openai']);
+export const LLMProviderSchema = z.enum(['anthropic', 'openai', 'openai-compatible']);
 
 export const AgentConfigSchema = z.object({
   name: z.string(),
@@ -20,11 +20,21 @@ const AnthropicConfigSchema = z.object({
   model: z.string().default('claude-sonnet-4-20250514'),
   maxTokens: z.number().default(4096),
   temperature: z.number().min(0).max(1).default(0),
+  baseURL: z.string().optional(),
 });
 
 const OpenAIConfigSchema = z.object({
   apiKey: z.string().optional(),
   model: z.string().default('gpt-4o'),
+  maxTokens: z.number().default(4096),
+  temperature: z.number().min(0).max(1).default(0),
+  baseURL: z.string().optional(),
+});
+
+const OpenAICompatibleConfigSchema = z.object({
+  apiKey: z.string().optional(),
+  model: z.string(),
+  baseURL: z.string(),
   maxTokens: z.number().default(4096),
   temperature: z.number().min(0).max(1).default(0),
 });
@@ -62,6 +72,26 @@ const SecurityConfigSchema = z.object({
   keychainService: z.string().default('com.traytor.sdd'),
 });
 
+const YOLOConfigSchema = z.object({
+  skipPlanning: z.boolean().default(false),
+  executionAgent: z.string().default('claude-code'),
+  planTemplate: z.string().optional(),
+  planAgent: z.string().optional(),
+  verificationEnabled: z.boolean().default(true),
+  verificationAgent: z.string().optional(),
+  verificationSeverity: z
+    .array(z.enum(['critical', 'major', 'minor']))
+    .default(['critical', 'major']),
+  verificationTemplate: z.string().optional(),
+  reviewAgent: z.string().optional(),
+  reviewTemplate: z.string().optional(),
+  reviewCategories: z.array(z.string()).optional(),
+  autoCommit: z.boolean().default(false),
+  commitMessage: z.string().default('auto: complete phase {phase}'),
+  maxRetriesPerPhase: z.number().default(3),
+  timeout: z.number().optional(),
+});
+
 const MCPServerConfigSchema = z.object({
   name: z.string(),
   url: z.string(),
@@ -83,6 +113,12 @@ const ModelProfilesSchema = z.object({
   balanced: ModelProfileSchema.optional(),
   frontier: ModelProfileSchema.optional(),
   custom: z.record(z.string(), ModelProfileSchema).optional(),
+  stepProfiles: z
+    .record(
+      z.enum(['planning', 'verification', 'review', 'orchestration', 'iteration']),
+      z.string()
+    )
+    .optional(),
 });
 
 export const ConfigSchema = z.object({
@@ -93,6 +129,7 @@ export const ConfigSchema = z.object({
     temperature: 0,
   }),
   openai: OpenAIConfigSchema.default({ model: 'gpt-4o', maxTokens: 4096, temperature: 0 }),
+  openaiCompatible: OpenAICompatibleConfigSchema.optional(),
   modelProfiles: ModelProfilesSchema.default({}),
   defaultAgent: z.string().optional(),
   agents: z.array(AgentConfigSchema).default([]),
@@ -101,10 +138,13 @@ export const ConfigSchema = z.object({
   dataDir: z.string().default('~/.sdd-tool/data'),
   logLevel: z.enum(['debug', 'info', 'warn', 'error', 'silent']).default('info'),
   verification: VerificationConfigSchema.default({ autoVerify: false, maxRetries: 3 }),
-  git: GitConfigSchema.default({ autoCommit: { enabled: false, messageTemplate: 'sdd: {taskId} - step {step} completed' } }),
+  git: GitConfigSchema.default({
+    autoCommit: { enabled: false, messageTemplate: 'sdd: {taskId} - step {step} completed' },
+  }),
   workflow: WorkflowConfigSchema.default({ default: 'default' }),
   cache: CacheConfigSchema.default({ ttlMs: 5 * 60 * 1000, maxEntries: 500, persist: true }),
   security: SecurityConfigSchema.default({ useKeychain: true, keychainService: 'com.traytor.sdd' }),
+  yolo: YOLOConfigSchema.optional(),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -112,3 +152,4 @@ export type AgentConfig = z.infer<typeof AgentConfigSchema>;
 export type MCPServerConfig = z.infer<typeof MCPServerConfigSchema>;
 export type ModelProfile = z.infer<typeof ModelProfileSchema>;
 export type ModelProfiles = z.infer<typeof ModelProfilesSchema>;
+export type YOLOConfig = z.infer<typeof YOLOConfigSchema>;

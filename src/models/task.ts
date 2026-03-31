@@ -2,6 +2,7 @@ import type { Plan } from './plan.js';
 import type { Phase } from './phase.js';
 import type { Review } from './review.js';
 import type { Epic } from './epic.js';
+import type { Verification } from './verification.js';
 
 export type TaskType = 'plan' | 'phases' | 'review' | 'epic';
 
@@ -12,6 +13,10 @@ export interface TaskContext {
   folders: string[];
   gitRef?: string;
   images?: string[];
+  source?: 'github' | 'gitlab' | 'manual';
+  repo?: string;
+  issueNumber?: number;
+  issueUrl?: string;
 }
 
 export interface TaskHistoryEntry {
@@ -30,6 +35,15 @@ export interface TaskExecution {
   exitCode?: number;
 }
 
+export interface TaskUsage {
+  planInputTokens: number;
+  planOutputTokens: number;
+  verifyInputTokens: number;
+  verifyOutputTokens: number;
+  reviewInputTokens: number;
+  reviewOutputTokens: number;
+}
+
 export interface Task {
   id: string;
   type: TaskType;
@@ -40,6 +54,8 @@ export interface Task {
   phases?: Phase[];
   review?: Review;
   epic?: Epic;
+  verification?: Verification;
+  usage?: TaskUsage;
   executions: TaskExecution[];
   history: TaskHistoryEntry[];
   createdAt: string;
@@ -50,5 +66,3 @@ export function createTaskId(now = Date.now()): string {
   const random = Math.random().toString(36).slice(2, 8);
   return `task_${now}_${random}`;
 }
-
-

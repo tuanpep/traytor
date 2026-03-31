@@ -106,10 +106,7 @@ export class EpicGenerator {
    * Continue an elicitation session with user responses.
    * Returns the next set of questions or marks the session as complete.
    */
-  async continueElicitation(
-    state: ElicitationState,
-    answers: string[]
-  ): Promise<ElicitationState> {
+  async continueElicitation(state: ElicitationState, answers: string[]): Promise<ElicitationState> {
     if (state.complete) {
       return state;
     }
@@ -140,7 +137,11 @@ export class EpicGenerator {
       answer: r.answer,
     }));
 
-    const prompt = this.buildFollowUpElicitationPrompt(state.query, projectContext, responseHistory);
+    const prompt = this.buildFollowUpElicitationPrompt(
+      state.query,
+      projectContext,
+      responseHistory
+    );
 
     const response = await this.llmService.complete(prompt, {
       maxTokens: 2048,
@@ -235,11 +236,7 @@ export class EpicGenerator {
   /**
    * Generate a workflow (execution plan) for the epic.
    */
-  async generateWorkflow(
-    query: string,
-    specs: Spec[],
-    tickets: Ticket[]
-  ): Promise<Workflow> {
+  async generateWorkflow(query: string, specs: Spec[], tickets: Ticket[]): Promise<Workflow> {
     this.logger.info(`Generating workflow for: ${query}`);
 
     const specSummaries = specs.map((s) => `[${s.type}] ${s.title}`);
@@ -406,7 +403,9 @@ Respond in markdown format.`;
 
   private parseFollowUpResponse(
     content: string
-  ): { type: 'questions'; questions: ElicitationQuestion[] } | { type: 'complete'; summary: string } {
+  ):
+    | { type: 'questions'; questions: ElicitationQuestion[] }
+    | { type: 'complete'; summary: string } {
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
@@ -438,7 +437,7 @@ Respond in markdown format.`;
     const tickets: Ticket[] = [];
 
     // Match ## Ticket N: Title or ## Ticket N - Title patterns
-    const ticketRegex = /^#{2,3}\s+Ticket\s+(\d+)\s*[:\-\—]\s*(.+)$/gim;
+    const ticketRegex = /^#{2,3}\s+Ticket\s+(\d+)\s*[-:—]\s*(.+)$/gim;
     let match: RegExpExecArray | null;
     const ticketMatches: { index: number; ticketNum: number; title: string }[] = [];
 
@@ -500,7 +499,7 @@ Respond in markdown format.`;
 
     // Look for acceptance criteria section
     const acSection = block.match(
-      /^#{1,3}\s+Acceptance\s+Criteria\s*\n([\s\S]*?)(?=^#{1,3}\s|\Z)/gim
+      /^#{1,3}\s+Acceptance\s+Criteria\s*\n([\s\S]*?)(?=^#{1,3}\s|$)/gim
     );
 
     if (acSection) {
@@ -509,7 +508,7 @@ Respond in markdown format.`;
         for (const line of lines) {
           const trimmed = line.trim();
           // Match list items: - item, * item, 1. item
-          const listMatch = trimmed.match(/^[\-\*\d.)\]]\s+(.+)/);
+          const listMatch = trimmed.match(/^[-*\d.)\]]\s+(.+)/);
           if (listMatch) {
             criteria.push(listMatch[1].trim());
           }
@@ -522,6 +521,7 @@ Respond in markdown format.`;
 
   private extractLinkedSpecs(_block: string): string[] {
     // Specs are linked by ID after creation; parse any explicit references
+    void _block;
     return [];
   }
 

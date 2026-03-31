@@ -8,6 +8,8 @@ export interface OpenAIProviderConfig {
   model: string;
   maxTokens: number;
   temperature: number;
+  baseURL?: string;
+  disableThinking?: boolean;
 }
 
 export class OpenAIProvider implements LLMProvider {
@@ -19,18 +21,15 @@ export class OpenAIProvider implements LLMProvider {
     this.config = config;
 
     if (!config.apiKey) {
-      throw new LLMProviderError(
-        this.name,
-        'API key is not configured',
-        {
-          suggestion:
-            'Set the OPENAI_API_KEY environment variable or add openai.apiKey to your config file',
-        }
-      );
+      throw new LLMProviderError(this.name, 'API key is not configured', {
+        suggestion:
+          'Set the OPENAI_API_KEY environment variable or add openai.apiKey to your config file',
+      });
     }
 
     this.client = new OpenAI({
       apiKey: config.apiKey,
+      baseURL: config.baseURL,
     });
   }
 
@@ -39,16 +38,21 @@ export class OpenAIProvider implements LLMProvider {
     const model = options?.model ?? this.config.model;
     const maxTokens = options?.maxTokens ?? this.config.maxTokens;
     const temperature = options?.temperature ?? this.config.temperature;
+    const disableThinking = options?.disableThinking ?? this.config.disableThinking;
 
     logger.debug(`OpenAI complete request: model=${model}, maxTokens=${maxTokens}`);
 
     try {
-      const params: OpenAI.ChatCompletionCreateParamsNonStreaming = {
+      const params: Record<string, unknown> = {
         model,
         max_tokens: maxTokens,
         temperature,
         messages: [{ role: 'user', content: prompt }],
       };
+
+      if (disableThinking) {
+        params.thinking = { type: 'disabled' };
+      }
 
       if (options?.system) {
         params.messages = [
@@ -57,7 +61,8 @@ export class OpenAIProvider implements LLMProvider {
         ];
       }
 
-      const response = await this.client.chat.completions.create(params);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const response = await (this.client.chat.completions.create as any)(params);
 
       const content = response.choices[0]?.message?.content ?? '';
 
@@ -87,17 +92,22 @@ export class OpenAIProvider implements LLMProvider {
     const model = llmOptions.model ?? this.config.model;
     const maxTokens = llmOptions.maxTokens ?? this.config.maxTokens;
     const temperature = llmOptions.temperature ?? this.config.temperature;
+    const disableThinking = llmOptions.disableThinking ?? this.config.disableThinking;
 
     logger.debug(`OpenAI stream request: model=${model}, maxTokens=${maxTokens}`);
 
     try {
-      const params: OpenAI.ChatCompletionCreateParamsStreaming = {
+      const params: Record<string, unknown> = {
         model,
         max_tokens: maxTokens,
         temperature,
         messages: [{ role: 'user', content: prompt }],
         stream: true,
       };
+
+      if (disableThinking) {
+        params.thinking = { type: 'disabled' };
+      }
 
       if (llmOptions.system) {
         params.messages = [
@@ -106,7 +116,8 @@ export class OpenAIProvider implements LLMProvider {
         ];
       }
 
-      const stream = await this.client.chat.completions.create(params);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const stream = await (this.client.chat.completions.create as any)(params);
       const chunks: string[] = [];
       let responseModel = model;
       let inputTokens = 0;
@@ -148,14 +159,10 @@ export class OpenAIProvider implements LLMProvider {
     }
 
     if (error instanceof OpenAI.APIError) {
-      return new LLMProviderError(
-        this.name,
-        `${error.status} ${error.message}`,
-        {
-          status: error.status,
-          retryable: error.status === 429 || (error.status ?? 0) >= 500,
-        }
-      );
+      return new LLMProviderError(this.name, `${error.status} ${error.message}`, {
+        status: error.status,
+        retryable: error.status === 429 || (error.status ?? 0) >= 500,
+      });
     }
 
     const message = error instanceof Error ? error.message : String(error);

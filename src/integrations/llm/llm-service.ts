@@ -6,6 +6,8 @@ import { OpenAIProvider } from './openai-provider.js';
 import { withRetry } from './retry.js';
 import type { LLMOptions, LLMProvider, LLMResponse, StreamCallback } from './types.js';
 
+export type StepType = 'planning' | 'verification' | 'review' | 'orchestration' | 'iteration';
+
 /**
  * Multi-provider LLM service that initializes providers from config
  * and routes requests to the configured default provider.
@@ -15,6 +17,15 @@ export class LLMService {
   private providers = new Map<string, LLMProvider>();
   private defaultProviderName: string;
   private modelProfiles = new Map<string, ModelProfile>();
+  private stepProfiles: Record<StepType, string> = {
+    planning: 'balanced',
+    verification: 'balanced',
+    review: 'balanced',
+    orchestration: 'balanced',
+    iteration: 'balanced',
+  };
+  private totalInputTokens = 0;
+  private totalOutputTokens = 0;
 
   constructor(config: Config) {
     const logger = getLogger();
@@ -27,6 +38,7 @@ export class LLMService {
         model: config.anthropic.model,
         maxTokens: config.anthropic.maxTokens,
         temperature: config.anthropic.temperature,
+        baseURL: config.anthropic.baseURL,
       });
       this.providers.set('anthropic', anthropicProvider);
       logger.debug('Anthropic provider initialized');
@@ -45,6 +57,8 @@ export class LLMService {
         model: config.openai.model,
         maxTokens: config.openai.maxTokens,
         temperature: config.openai.temperature,
+        baseURL: config.openai.baseURL,
+        disableThinking: true,
       });
       this.providers.set('openai', openaiProvider);
       logger.debug('OpenAI provider initialized');
@@ -53,6 +67,28 @@ export class LLMService {
         logger.warn(`OpenAI provider initialization skipped: ${error.message}`);
       } else {
         throw error;
+      }
+    }
+
+    // Initialize OpenAI-compatible provider (Z.ai, Ollama, OpenRouter, etc.)
+    if (config.openaiCompatible) {
+      try {
+        const compatibleProvider = new OpenAIProvider({
+          apiKey: config.openaiCompatible.apiKey,
+          model: config.openaiCompatible.model,
+          maxTokens: config.openaiCompatible.maxTokens,
+          temperature: config.openaiCompatible.temperature,
+          baseURL: config.openaiCompatible.baseURL,
+          disableThinking: true,
+        });
+        this.providers.set('openai-compatible', compatibleProvider);
+        logger.debug('OpenAI-compatible provider initialized');
+      } catch (error) {
+        if (error instanceof LLMProviderError) {
+          logger.warn(`OpenAI-compatible provider initialization skipped: ${error.message}`);
+        } else {
+          throw error;
+        }
       }
     }
 
@@ -85,8 +121,26 @@ export class LLMService {
       this.modelProfiles.set(name, profile);
     }
 
+    // Register step-level profiles
+    if (config.modelProfiles.stepProfiles) {
+      for (const [stepType, profileName] of Object.entries(config.modelProfiles.stepProfiles)) {
+        const validProfileNames = [
+          'balanced',
+          'frontier',
+          ...Object.keys(config.modelProfiles.custom ?? {}),
+        ];
+        if (!validProfileNames.includes(profileName)) {
+          logger.warn(
+            `Step profile "${stepType}" references unknown profile "${profileName}". Available: ${validProfileNames.join(', ')}`
+          );
+        }
+        this.stepProfiles[stepType as StepType] = profileName;
+      }
+    }
+
     if (this.modelProfiles.size > 0) {
       logger.debug(`Model profiles registered: ${[...this.modelProfiles.keys()].join(', ')}`);
+      logger.debug(`Step profiles: ${JSON.stringify(this.stepProfiles)}`);
     }
   }
 
@@ -120,12 +174,43 @@ export class LLMService {
   }
 
   /**
+   * Get the profile name configured for a specific step type.
+   */
+  getStepProfile(stepType: StepType): string {
+    return this.stepProfiles[stepType];
+  }
+
+  /**
+   * Set the profile for a specific step type.
+   */
+  setStepProfile(stepType: StepType, profileName: string): void {
+    this.stepProfiles[stepType] = profileName;
+  }
+
+  /**
+   * Get model options for a specific step type (planning, verification, review, etc.)
+   */
+  getStepOptions(stepType: StepType): LLMOptions {
+    const profileName = this.stepProfiles[stepType];
+    const profile = this.modelProfiles.get(profileName);
+    if (profile) {
+      return {
+        model: profile.model,
+        maxTokens: profile.maxTokens,
+        temperature: profile.temperature,
+      };
+    }
+    return {};
+  }
+
+  /**
    * Resolve LLM options from a model profile, merging profile settings
    * with any explicitly provided options.
    */
-  resolveOptions(
-    options: LLMOptions & { provider?: string; profile?: string } = {}
-  ): { provider: string; llmOptions: LLMOptions } {
+  resolveOptions(options: LLMOptions & { provider?: string; profile?: string } = {}): {
+    provider: string;
+    llmOptions: LLMOptions;
+  } {
     if (options.profile) {
       const profile = this.modelProfiles.get(options.profile);
       if (profile) {
@@ -152,10 +237,16 @@ export class LLMService {
     };
   }
 
-  async complete(prompt: string, options?: LLMOptions & { provider?: string; profile?: string }): Promise<LLMResponse> {
+  async complete(
+    prompt: string,
+    options?: LLMOptions & { provider?: string; profile?: string }
+  ): Promise<LLMResponse> {
     const { provider: providerName, llmOptions } = this.resolveOptions(options);
     const provider = this.getProvider(providerName);
-    return withRetry(() => provider.complete(prompt, llmOptions));
+    const response = await withRetry(() => provider.complete(prompt, llmOptions));
+    this.totalInputTokens += response.usage.inputTokens;
+    this.totalOutputTokens += response.usage.outputTokens;
+    return response;
   }
 
   async stream(
@@ -163,8 +254,28 @@ export class LLMService {
     options: LLMOptions & { onChunk: StreamCallback; provider?: string; profile?: string }
   ): Promise<LLMResponse> {
     const { onChunk, profile, provider, ...restOptions } = options;
-    const { provider: providerName, llmOptions } = this.resolveOptions({ ...restOptions, profile, provider });
+    const { provider: providerName, llmOptions } = this.resolveOptions({
+      ...restOptions,
+      profile,
+      provider,
+    });
     const providerInstance = this.getProvider(providerName);
-    return withRetry(() => providerInstance.stream(prompt, { ...llmOptions, onChunk }));
+    const response = await withRetry(() =>
+      providerInstance.stream(prompt, { ...llmOptions, onChunk })
+    );
+    this.totalInputTokens += response.usage.inputTokens;
+    this.totalOutputTokens += response.usage.outputTokens;
+    return response;
+  }
+
+  /**
+   * Get cumulative token usage across all LLM calls in this session.
+   */
+  getTotalUsage(): { inputTokens: number; outputTokens: number; totalTokens: number } {
+    return {
+      inputTokens: this.totalInputTokens,
+      outputTokens: this.totalOutputTokens,
+      totalTokens: this.totalInputTokens + this.totalOutputTokens,
+    };
   }
 }

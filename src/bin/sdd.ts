@@ -7,10 +7,27 @@ import { runPlanCommand } from '../commands/plan.js';
 import { runExecCommand } from '../commands/exec.js';
 import { runVerifyCommand } from '../commands/verify.js';
 import { runHistoryCommand } from '../commands/history.js';
-import { runPhasesCommand } from '../commands/phases.js';
+import {
+  runPhasesCommand,
+  runPhasesListCommand,
+  runPhaseAddCommand,
+  runPhaseInsertCommand,
+  runPhaseReorderCommand,
+  runPhaseDeleteCommand,
+} from '../commands/phases.js';
 import { runReviewCommand } from '../commands/review.js';
-import { runAgentList, runAgentAdd, runAgentRemove, runAgentSetDefault } from '../commands/agent.js';
-import { runTemplateList, runTemplateShow, runTemplateCreate, runTemplateEdit } from '../commands/template.js';
+import {
+  runAgentList,
+  runAgentAdd,
+  runAgentRemove,
+  runAgentSetDefault,
+} from '../commands/agent.js';
+import {
+  runTemplateList,
+  runTemplateShow,
+  runTemplateCreate,
+  runTemplateEdit,
+} from '../commands/template.js';
 import {
   runWorkflowList,
   runWorkflowShow,
@@ -23,6 +40,12 @@ import {
   runGitDiff,
   runGitCommit,
 } from '../commands/workflow.js';
+import {
+  runModelProfileList,
+  runModelProfileShow,
+  runModelProfileSet,
+} from '../commands/model-profile.js';
+import { runUsageCommand } from '../commands/usage.js';
 import {
   runEpicCommand,
   runSpecListCommand,
@@ -55,9 +78,14 @@ program
       logger.info('SDD Tool is running!');
 
       console.log('');
+      const currentModel =
+        ctx.config.provider === 'anthropic' ? ctx.config.anthropic.model : ctx.config.openai.model;
       console.log('  Configuration loaded successfully:');
       console.log(`    Provider:   ${ctx.config.provider}`);
-      console.log(`    Model:      ${ctx.config.anthropic.model}`);
+      console.log(`    Model:      ${currentModel}`);
+      if (ctx.config.openai.baseURL) {
+        console.log(`    Base URL:   ${ctx.config.openai.baseURL}`);
+      }
       console.log(`    Data dir:   ${ctx.config.dataDir}`);
       console.log(`    Log level:  ${ctx.config.logLevel}`);
       console.log(`    Agents:     ${ctx.config.agents.length} configured`);
@@ -119,6 +147,163 @@ program
     }
   });
 
+// ─── Phase List Command ─────────────────────────────────────────────────────
+
+program
+  .command('phases:list')
+  .description('List all phases for a task')
+  .argument('<task-id>', 'Task ID of a phases task')
+  .action(async (taskId: string) => {
+    try {
+      const ctx = await getContext();
+      await runPhasesListCommand(ctx.taskService, taskId);
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+// ─── Phase Add Command ───────────────────────────────────────────────────────
+
+program
+  .command('phases:add')
+  .description('Add a new phase to a task')
+  .argument('<task-id>', 'Task ID of a phases task')
+  .option('--name <name>', 'Name of the new phase (required)')
+  .option('--description <text>', 'Description of the phase')
+  .action(async (taskId: string, opts) => {
+    try {
+      const ctx = await getContext();
+      await runPhaseAddCommand(ctx.taskService, taskId, {
+        name: opts.name,
+        description: opts.description,
+      });
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+// ─── Phase Insert Command ───────────────────────────────────────────────────
+
+program
+  .command('phases:insert')
+  .description('Insert a new phase after a specific phase')
+  .argument('<task-id>', 'Task ID of a phases task')
+  .option('--name <name>', 'Name of the new phase (required)')
+  .option('--description <text>', 'Description of the phase')
+  .option('--insert-after <n>', 'Insert after phase N (required)', parseInt)
+  .action(async (taskId: string, opts) => {
+    try {
+      const ctx = await getContext();
+      await runPhaseInsertCommand(ctx.taskService, taskId, {
+        name: opts.name,
+        description: opts.description,
+        insertAfter: opts.insertAfter,
+      });
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+// ─── Phase Reorder Command ──────────────────────────────────────────────────
+
+program
+  .command('phases:reorder')
+  .description('Reorder phases by specifying new order of phase IDs')
+  .argument('<task-id>', 'Task ID of a phases task')
+  .argument('<phase-ids...>', 'Phase IDs in new order (e.g., id1 id2 id3)')
+  .action(async (taskId: string, phaseIds: string[]) => {
+    try {
+      const ctx = await getContext();
+      await runPhaseReorderCommand(ctx.taskService, taskId, phaseIds);
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+// ─── Phase Delete Command ───────────────────────────────────────────────────
+
+program
+  .command('phases:delete')
+  .description('Delete a phase from a task')
+  .argument('<task-id>', 'Task ID of a phases task')
+  .argument('<phase-order>', 'Phase order (1-based) to delete', parseInt)
+  .action(async (taskId: string, phaseOrder: number) => {
+    try {
+      const ctx = await getContext();
+      await runPhaseDeleteCommand(ctx.taskService, taskId, phaseOrder);
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+// ─── YOLO Command ──────────────────────────────────────────────────────────
+
+import { runYOLOCommand } from '../commands/yolo.js';
+
+program
+  .command('yolo')
+  .description('Run automated phase execution (YOLO mode)')
+  .argument('<task-id>', 'Task ID of a phases task to execute')
+  .option('--from-phase <n>', 'Start from phase N', parseInt)
+  .option('--to-phase <n>', 'End at phase N', parseInt)
+  .option('--skip-planning', 'Skip plan generation for each phase')
+  .option('--agent <name>', 'Agent to use for execution')
+  .option('--plan-agent <name>', 'Agent to use for planning')
+  .option('--verify-agent <name>', 'Agent to use for verification')
+  .option('--no-verify', 'Skip verification after each phase')
+  .option(
+    '--verify-severity <levels>',
+    'Severity levels to verify (comma-separated: critical,major,minor)'
+  )
+  .option('--plan-template <name>', 'Template for plan generation')
+  .option('--verify-template <name>', 'Template for verification')
+  .option('--auto-commit', 'Auto-commit after each phase')
+  .option('--commit-msg <template>', 'Commit message template')
+  .option('--timeout <ms>', 'Execution timeout in milliseconds')
+  .option('--max-retries <n>', 'Max retries per phase', parseInt)
+  .option('--parallel', 'Execute phases in parallel (for independent phases)')
+  .option('--dry-run', 'Show what would happen without executing')
+  .option('-v, --verbose', 'Show verbose output')
+  .action(async (taskId: string, opts) => {
+    try {
+      const ctx = await getContext();
+      const logLevel = opts.verbose ? 'debug' : ctx.config.logLevel;
+      initLogger({ level: logLevel });
+
+      await runYOLOCommand(
+        {
+          taskService: ctx.taskService,
+          planGenerator: ctx.planGenerator!,
+          agentService: ctx.agentService,
+          verifier: ctx.verifier,
+          gitService: ctx.gitService,
+          yoloConfig: ctx.config.yolo,
+        },
+        taskId,
+        {
+          fromPhase: opts.fromPhase,
+          toPhase: opts.toPhase,
+          skipPlanning: opts.skipPlanning,
+          executionAgent: opts.agent,
+          planAgent: opts.planAgent,
+          verifyAgent: opts.verifyAgent,
+          noVerify: opts.noVerify,
+          verifySeverity: opts.verifySeverity?.split(',').map((s: string) => s.trim()),
+          planTemplate: opts.planTemplate,
+          verifyTemplate: opts.verifyTemplate,
+          autoCommit: opts.autoCommit,
+          commitMessage: opts.commitMsg,
+          timeout: opts.timeout ? parseInt(opts.timeout, 10) : undefined,
+          maxRetries: opts.maxRetries,
+          dryRun: opts.dryRun,
+          parallel: opts.parallel,
+        }
+      );
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
 // ─── Exec Command ──────────────────────────────────────────────────────────
 
 program
@@ -157,6 +342,16 @@ program
   .argument('<task-id>', 'Task ID to verify')
   .option('--cwd <path>', 'Working directory to analyze')
   .option('--phase <n>', 'Verify a specific phase (for phases tasks)', parseInt)
+  .option('--mode <mode>', 'Verification mode: fresh (default) or reverify', 'fresh')
+  .option('--fix-comment <id>', 'Mark a verification comment as fixed or ignored')
+  .option('--fix-comment-status <status>', 'Status for --fix-comment: fixed or ignored', 'fixed')
+  .option('--fix', 'Fix verification comments using an agent')
+  .option('--fix-comment-ids <ids>', 'Comma-separated comment IDs to fix')
+  .option('--fix-all', 'Fix all blocking comments')
+  .option('--batch-size <n>', 'Batch size for fixing comments', parseInt)
+  .option('--agent <name>', 'Agent to use for fixing')
+  .option('--severity <levels>', 'Severity levels to fix (comma-separated: critical,major,minor)')
+  .option('--dry-run', 'Dry run for fix operations')
   .option('-v, --verbose', 'Show verbose output')
   .action(async (taskId: string, opts) => {
     try {
@@ -164,9 +359,19 @@ program
       const logLevel = opts.verbose ? 'debug' : ctx.config.logLevel;
       initLogger({ level: logLevel });
 
-      await runVerifyCommand(ctx.taskService, ctx.verifier, taskId, {
+      await runVerifyCommand(ctx.taskService, ctx.verifier, ctx.agentService, taskId, {
         cwd: opts.cwd,
         phase: opts.phase,
+        mode: opts.mode as 'fresh' | 'reverify',
+        fixComment: opts.fixComment,
+        fixCommentStatus: opts.fixCommentStatus as 'fixed' | 'ignored',
+        fix: opts.fix,
+        fixCommentIds: opts.fixCommentIds,
+        fixAll: opts.fixAll,
+        batchSize: opts.batchSize,
+        agent: opts.agent,
+        severity: opts.severity,
+        dryRun: opts.dryRun,
       });
     } catch (err) {
       handleError(err);
@@ -178,25 +383,31 @@ program
 program
   .command('review')
   .description('Run an agentic code review')
-  .argument('<query>', 'Review description or focus area')
+  .argument('[query]', 'Review description or focus area (omit with --fix to fix existing review)')
   .option('-f, --files <files...>', 'Specific files to review')
   .option('--against <ref>', 'Git ref to compare against (e.g., main, HEAD~3)')
   .option('-o, --output <format>', 'Output format: terminal, markdown, json', 'terminal')
   .option('--output-file <path>', 'Write output to a file (for markdown/json)')
   .option('--cwd <path>', 'Working directory to analyze')
+  .option('--fix', 'Fix mode: generate fix prompt for review comments')
+  .option('--fix-comment-ids <ids>', 'Comma-separated comment IDs to fix (for --fix mode)')
+  .option('--fix-template <name>', 'Template for fix prompt')
   .option('-v, --verbose', 'Show verbose output')
-  .action(async (query: string, opts) => {
+  .action(async (query: string | undefined, opts) => {
     try {
       const ctx = await getContext();
       const logLevel = opts.verbose ? 'debug' : ctx.config.logLevel;
       initLogger({ level: logLevel });
 
-      await runReviewCommand(ctx.taskService, ctx.reviewGenerator, query, {
+      await runReviewCommand(ctx.taskService, ctx.reviewGenerator, query || '', {
         against: opts.against,
         files: opts.files,
         output: opts.output,
         outputFile: opts.outputFile,
         cwd: opts.cwd,
+        fix: opts.fix,
+        fixCommentIds: opts.fixCommentIds,
+        fixTemplate: opts.fixTemplate,
       });
     } catch (err) {
       handleError(err);
@@ -484,7 +695,10 @@ program
   .command('workflow')
   .description('Manage workflows and workflow state')
   .argument('<subcommand>', 'Subcommand: list, show, create, state, advance, pause, resume')
-  .argument('[nameOrId]', 'Workflow name (for show, create) or workflow ID (for state, advance, pause, resume)')
+  .argument(
+    '[nameOrId]',
+    'Workflow name (for show, create) or workflow ID (for state, advance, pause, resume)'
+  )
   .option('--description <desc>', 'Workflow description (for create)')
   .option('--steps <steps>', 'Comma-separated step names (for create)')
   .option('-v, --verbose', 'Show verbose output')
@@ -556,7 +770,9 @@ program
         }
         default:
           console.error(chalk.red(`Unknown subcommand: ${subcommand}`));
-          console.log(chalk.dim('Available subcommands: list, show, create, state, advance, pause, resume'));
+          console.log(
+            chalk.dim('Available subcommands: list, show, create, state, advance, pause, resume')
+          );
           process.exit(1);
       }
     } catch (err) {
@@ -647,7 +863,8 @@ program
     try {
       initLogger({ level: 'info' });
 
-      const { runConfigCommand, runConfigSetKey, runConfigGetKey, runConfigRemoveKey } = await import('../commands/config.js');
+      const { runConfigCommand, runConfigSetKey, runConfigGetKey, runConfigRemoveKey } =
+        await import('../commands/config.js');
 
       switch (subcommand) {
         case 'show': {
@@ -687,6 +904,68 @@ program
           console.log(chalk.dim('Available subcommands: show, set-key, get-key, remove-key'));
           process.exit(1);
       }
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+// ─── Model Profile Command ──────────────────────────────────────────────────
+
+program
+  .command('model-profile')
+  .description('Manage model profiles')
+  .argument('<subcommand>', 'Subcommand: list, show, set')
+  .argument('[name]', 'Profile name (for show, set)')
+  .option('--type <type>', 'Task type for set: plan, verify, review')
+  .action(async (subcommand: string, name: string | undefined, opts) => {
+    try {
+      const ctx = await getContext();
+      initLogger({ level: 'info' });
+
+      const profileCtx = { config: ctx.config };
+
+      switch (subcommand) {
+        case 'list':
+          await runModelProfileList(profileCtx);
+          break;
+        case 'show': {
+          if (!name) {
+            console.error(chalk.red('Profile name is required for show.'));
+            process.exit(1);
+          }
+          await runModelProfileShow(profileCtx, name);
+          break;
+        }
+        case 'set': {
+          if (!name) {
+            console.error(chalk.red('Profile name is required for set.'));
+            process.exit(1);
+          }
+          await runModelProfileSet(profileCtx, opts.type || 'default', name);
+          break;
+        }
+        default:
+          console.error(chalk.red(`Unknown subcommand: ${subcommand}`));
+          console.log(chalk.dim('Available subcommands: list, show, set'));
+          process.exit(1);
+      }
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+// ─── Usage Command ────────────────────────────────────────────────────────
+
+program
+  .command('usage')
+  .description('Show token usage statistics')
+  .argument('[task-id]', 'Task ID to show usage for (omit for total usage)')
+  .action(async (taskId: string | undefined) => {
+    try {
+      const ctx = await getContext();
+      initLogger({ level: 'info' });
+
+      await runUsageCommand(ctx.taskService, taskId);
     } catch (err) {
       handleError(err);
     }

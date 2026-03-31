@@ -22,12 +22,21 @@ export async function runWorkflowList(ctx: WorkflowCommandContext): Promise<void
   console.log('');
 
   for (const workflow of workflows) {
-    const isDefault = workflow.name === 'default';
-    console.log(`  ${isDefault ? chalk.green('*') : ' '} ${chalk.bold(workflow.name)}`);
+    const isBuiltIn = ctx.workflowEngine.isBuiltIn(workflow.name);
+    const tag = isBuiltIn ? chalk.green('[built-in]') : chalk.gray('[custom]');
+    console.log(`  ${chalk.bold(workflow.name)} ${tag}`);
     if (workflow.description) {
       console.log(chalk.dim(`    ${workflow.description}`));
     }
-    console.log(chalk.dim(`    Steps: ${workflow.steps.map((s) => s.name).join(' → ')}`));
+    const stepsStr = workflow.steps
+      .map((s) => {
+        const hints = s.argumentHints?.length
+          ? `(${s.argumentHints.map((h) => h.name).join(', ')})`
+          : '';
+        return `${s.name}${hints}`;
+      })
+      .join(' → ');
+    console.log(chalk.dim(`    Steps: ${stepsStr}`));
     console.log('');
   }
 }
@@ -37,11 +46,46 @@ export async function runWorkflowList(ctx: WorkflowCommandContext): Promise<void
 export async function runWorkflowShow(ctx: WorkflowCommandContext, name: string): Promise<void> {
   try {
     const workflow = ctx.workflowEngine.getWorkflow(name);
-    console.log(formatWorkflowDefinition(workflow));
+    console.log(formatWorkflowDefinition(workflow, ctx));
   } catch (error) {
     console.error(chalk.red(error instanceof Error ? error.message : String(error)));
     throw error;
   }
+}
+
+// ─── Workflow Step Content ──────────────────────────────────────────────
+
+export async function runWorkflowStepContent(
+  ctx: WorkflowCommandContext,
+  workflowName: string,
+  stepName: string
+): Promise<void> {
+  const content = ctx.workflowEngine.getStepContent(workflowName, stepName);
+  if (!content) {
+    console.log(
+      chalk.yellow(`No content found for step "${stepName}" in workflow "${workflowName}"`)
+    );
+    return;
+  }
+
+  const agentMode = ctx.workflowEngine.getStepAgentMode(workflowName, stepName);
+  const hints = ctx.workflowEngine.getStepArgumentHints(workflowName, stepName);
+  const workflow = ctx.workflowEngine.getWorkflow(workflowName);
+  const step = workflow.steps.find((s) => s.name === stepName || s.customCommand === stepName);
+  const nextSteps = step?.nextSteps ?? [];
+
+  console.log(chalk.bold.cyan(`Command: /${stepName}`));
+  if (agentMode) {
+    console.log(chalk.dim(`  Mode: ${agentMode}`));
+  }
+  if (hints.length > 0) {
+    console.log(chalk.dim(`  Arguments: ${hints.map((h) => h.name).join(', ')}`));
+  }
+  if (nextSteps.length > 0) {
+    console.log(chalk.dim(`  Next Steps: ${nextSteps.map((s) => `/${s}`).join(', ')}`));
+  }
+  console.log('');
+  console.log(content);
 }
 
 // ─── Workflow Create ────────────────────────────────────────────────────
@@ -57,7 +101,10 @@ export async function runWorkflowCreate(
     return;
   }
 
-  const stepNames = options.steps.split(',').map((s) => s.trim()).filter(Boolean);
+  const stepNames = options.steps
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
   if (stepNames.length === 0) {
     console.error(chalk.red('At least one step is required.'));
     return;
@@ -78,7 +125,9 @@ export async function runWorkflowCreate(
     name: stepName,
     description: '',
     order: index + 1,
-    command: (commandMap[stepName.toLowerCase()] as 'plan' | 'exec' | 'verify' | 'complete' | 'custom') ?? 'custom',
+    command:
+      (commandMap[stepName.toLowerCase()] as 'plan' | 'exec' | 'verify' | 'complete' | 'custom') ??
+      'custom',
     required: true,
   }));
 
@@ -92,7 +141,7 @@ export async function runWorkflowCreate(
     await ctx.workflowEngine.createWorkflow(definition);
     console.log(chalk.green(`Workflow "${name}" created with ${steps.length} steps.`));
     console.log('');
-    console.log(formatWorkflowDefinition(definition));
+    console.log(formatWorkflowDefinition(definition, ctx));
   } catch (error) {
     console.error(chalk.red(error instanceof Error ? error.message : String(error)));
     throw error;
@@ -101,7 +150,10 @@ export async function runWorkflowCreate(
 
 // ─── Workflow State ──────────────────────────────────────────────────────
 
-export async function runWorkflowState(ctx: WorkflowCommandContext, workflowId: string): Promise<void> {
+export async function runWorkflowState(
+  ctx: WorkflowCommandContext,
+  workflowId: string
+): Promise<void> {
   try {
     const state = ctx.workflowEngine.getWorkflowState(workflowId);
     console.log(formatWorkflowState(state));
@@ -113,7 +165,10 @@ export async function runWorkflowState(ctx: WorkflowCommandContext, workflowId: 
 
 // ─── Workflow Advance ────────────────────────────────────────────────────
 
-export async function runWorkflowAdvance(ctx: WorkflowCommandContext, workflowId: string): Promise<void> {
+export async function runWorkflowAdvance(
+  ctx: WorkflowCommandContext,
+  workflowId: string
+): Promise<void> {
   try {
     const state = await ctx.workflowEngine.advanceWorkflow(workflowId);
     console.log(chalk.green('Workflow advanced!'));
@@ -127,7 +182,10 @@ export async function runWorkflowAdvance(ctx: WorkflowCommandContext, workflowId
 
 // ─── Workflow Pause/Resume ──────────────────────────────────────────────
 
-export async function runWorkflowPause(ctx: WorkflowCommandContext, workflowId: string): Promise<void> {
+export async function runWorkflowPause(
+  ctx: WorkflowCommandContext,
+  workflowId: string
+): Promise<void> {
   try {
     const state = await ctx.workflowEngine.pauseWorkflow(workflowId);
     console.log(chalk.yellow('Workflow paused.'));
@@ -139,7 +197,10 @@ export async function runWorkflowPause(ctx: WorkflowCommandContext, workflowId: 
   }
 }
 
-export async function runWorkflowResume(ctx: WorkflowCommandContext, workflowId: string): Promise<void> {
+export async function runWorkflowResume(
+  ctx: WorkflowCommandContext,
+  workflowId: string
+): Promise<void> {
   try {
     const state = await ctx.workflowEngine.resumeWorkflow(workflowId);
     console.log(chalk.green('Workflow resumed.'));
@@ -200,7 +261,11 @@ export async function runGitStatus(ctx: WorkflowCommandContext): Promise<void> {
       console.log('');
     }
 
-    if (status.staged.length === 0 && status.unstaged.length === 0 && status.untracked.length === 0) {
+    if (
+      status.staged.length === 0 &&
+      status.unstaged.length === 0 &&
+      status.untracked.length === 0
+    ) {
       console.log(chalk.green('Working tree clean.'));
     }
   } catch (error) {
@@ -224,9 +289,7 @@ export async function runGitDiff(ctx: WorkflowCommandContext, ref?: string): Pro
       return;
     }
 
-    const diffResult = ref
-      ? await ctx.gitService.getDiff(ref)
-      : await ctx.gitService.getDiff();
+    const diffResult = ref ? await ctx.gitService.getDiff(ref) : await ctx.gitService.getDiff();
 
     console.log(chalk.bold(`Diff: ${chalk.cyan(diffResult.from)} → ${diffResult.to}`));
     console.log('');
@@ -237,18 +300,40 @@ export async function runGitDiff(ctx: WorkflowCommandContext, ref?: string): Pro
     }
 
     for (const file of diffResult.files) {
-      const typeIcon = file.type === 'added' ? '+' : file.type === 'deleted' ? '-' : file.type === 'renamed' ? '→' : '~';
-      const typeColor = file.type === 'added' ? chalk.green : file.type === 'deleted' ? chalk.red : file.type === 'renamed' ? chalk.blue : chalk.yellow;
+      const typeIcon =
+        file.type === 'added'
+          ? '+'
+          : file.type === 'deleted'
+            ? '-'
+            : file.type === 'renamed'
+              ? '→'
+              : '~';
+      const typeColor =
+        file.type === 'added'
+          ? chalk.green
+          : file.type === 'deleted'
+            ? chalk.red
+            : file.type === 'renamed'
+              ? chalk.blue
+              : chalk.yellow;
 
       console.log(`  ${typeColor(typeIcon)} ${file.file}`);
       if (file.oldFile) {
         console.log(chalk.dim(`    from: ${file.oldFile}`));
       }
-      console.log(chalk.dim(`    ${chalk.green(`+${file.additions}`)} ${chalk.red(`-${file.deletions}`)} ${file.changes} changes`));
+      console.log(
+        chalk.dim(
+          `    ${chalk.green(`+${file.additions}`)} ${chalk.red(`-${file.deletions}`)} ${file.changes} changes`
+        )
+      );
     }
 
     console.log('');
-    console.log(chalk.dim(`Total: ${diffResult.totalAdditions} additions, ${diffResult.totalDeletions} deletions, ${diffResult.files.length} files`));
+    console.log(
+      chalk.dim(
+        `Total: ${diffResult.totalAdditions} additions, ${diffResult.totalDeletions} deletions, ${diffResult.files.length} files`
+      )
+    );
   } catch (error) {
     console.error(chalk.red(error instanceof Error ? error.message : String(error)));
     throw error;
@@ -257,7 +342,11 @@ export async function runGitDiff(ctx: WorkflowCommandContext, ref?: string): Pro
 
 // ─── Git Commit ─────────────────────────────────────────────────────────
 
-export async function runGitCommit(ctx: WorkflowCommandContext, message: string, files?: string[]): Promise<void> {
+export async function runGitCommit(
+  ctx: WorkflowCommandContext,
+  message: string,
+  files?: string[]
+): Promise<void> {
   if (!ctx.gitService) {
     console.error(chalk.red('Git service is not available.'));
     return;
@@ -284,19 +373,41 @@ export async function runGitCommit(ctx: WorkflowCommandContext, message: string,
 
 // ─── Formatters ─────────────────────────────────────────────────────────
 
-function formatWorkflowDefinition(workflow: WorkflowDefinition): string {
+function formatWorkflowDefinition(
+  workflow: WorkflowDefinition,
+  ctx: WorkflowCommandContext
+): string {
   const lines: string[] = [];
+  const isBuiltIn = ctx.workflowEngine.isBuiltIn(workflow.name);
 
   lines.push(chalk.bold.cyan(`Workflow: ${workflow.name}`));
+  if (isBuiltIn) {
+    lines.push(chalk.green('  [built-in]'));
+  }
   if (workflow.description) {
-    lines.push(chalk.dim(workflow.description));
+    lines.push(chalk.dim(`  ${workflow.description}`));
   }
   lines.push('');
   lines.push('Steps:');
   for (const step of workflow.steps) {
     const required = step.required ? '' : chalk.dim(' (optional)');
     lines.push(`  ${chalk.yellow(`${step.order}.`)} ${chalk.bold(step.name)}${required}`);
-    lines.push(chalk.dim(`     Command: ${step.command === 'custom' ? step.customCommand : step.command}`));
+    lines.push(
+      chalk.dim(`     Command: ${step.command === 'custom' ? step.customCommand : step.command}`)
+    );
+    if (step.agentMode) {
+      lines.push(chalk.dim(`     Agent Mode: ${step.agentMode}`));
+    }
+    if (step.nextSteps && step.nextSteps.length > 0) {
+      lines.push(chalk.dim(`     Next Steps: ${step.nextSteps.map((s) => `/${s}`).join(', ')}`));
+    }
+    if (step.argumentHints && step.argumentHints.length > 0) {
+      lines.push(
+        chalk.dim(
+          `     Arguments: ${step.argumentHints.map((h) => `${h.name}: ${h.description}`).join('; ')}`
+        )
+      );
+    }
     if (step.description) {
       lines.push(chalk.dim(`     ${step.description}`));
     }
@@ -308,13 +419,16 @@ function formatWorkflowDefinition(workflow: WorkflowDefinition): string {
 function formatWorkflowState(state: WorkflowState): string {
   const lines: string[] = [];
 
-  const statusColor = state.status === 'completed'
-    ? chalk.green
-    : state.status === 'paused'
-      ? chalk.yellow
-      : chalk.cyan;
+  const statusColor =
+    state.status === 'completed'
+      ? chalk.green
+      : state.status === 'paused'
+        ? chalk.yellow
+        : chalk.cyan;
 
-  lines.push(chalk.bold(`Workflow: ${chalk.cyan(state.definition.name)} [${statusColor(state.status)}]`));
+  lines.push(
+    chalk.bold(`Workflow: ${chalk.cyan(state.definition.name)} [${statusColor(state.status)}]`)
+  );
   lines.push(chalk.dim(`  ID: ${state.workflowId}`));
   lines.push(chalk.dim(`  Task: ${state.taskId}`));
   lines.push(chalk.dim(`  Started: ${state.startedAt}`));
@@ -328,24 +442,28 @@ function formatWorkflowState(state: WorkflowState): string {
     const stepState = state.stepStates[i];
     const isCurrent = i === state.currentStepIndex && state.status === 'in_progress';
 
-    const stepStatusColor = stepState.status === 'completed'
-      ? chalk.green
-      : stepState.status === 'active'
-        ? chalk.yellow
-        : stepState.status === 'skipped'
-          ? chalk.gray
-          : chalk.dim;
+    const stepStatusColor =
+      stepState.status === 'completed'
+        ? chalk.green
+        : stepState.status === 'active'
+          ? chalk.yellow
+          : stepState.status === 'skipped'
+            ? chalk.gray
+            : chalk.dim;
 
-    const icon = stepState.status === 'completed'
-      ? 'v'
-      : stepState.status === 'active'
-        ? '>'
-        : stepState.status === 'skipped'
-          ? '-'
-          : 'o';
+    const icon =
+      stepState.status === 'completed'
+        ? 'v'
+        : stepState.status === 'active'
+          ? '>'
+          : stepState.status === 'skipped'
+            ? '-'
+            : 'o';
 
     const prefix = isCurrent ? chalk.bold('>') : ' ';
-    lines.push(`${prefix} ${stepStatusColor(icon)} ${chalk.bold(step.name)} ${stepStatusColor(`[${stepState.status}]`)}`);
+    lines.push(
+      `${prefix} ${stepStatusColor(icon)} ${chalk.bold(step.name)} ${stepStatusColor(`[${stepState.status}]`)}`
+    );
   }
 
   return lines.join('\n');

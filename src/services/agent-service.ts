@@ -7,7 +7,9 @@ import { AgentExecutionError } from '../utils/errors.js';
 import { TemplateEngine } from './template-engine.js';
 import type { Plan } from '../models/plan.js';
 import type { Task } from '../models/task.js';
-import type { Config, AgentConfig } from '../config/schema.js';
+import type { Config, AgentConfig, MCPServerConfig } from '../config/schema.js';
+import type { MCPClient } from '../integrations/mcp/mcp-client.js';
+import type { MCPTool } from '../integrations/mcp/types.js';
 
 // ─── Agent Execution Options ────────────────────────────────────────────────
 
@@ -22,6 +24,8 @@ export interface AgentExecutionOptions {
   agentName?: string;
   /** Custom template name to use for rendering the prompt */
   templateName?: string;
+  /** Skip loading MCP tools for this execution */
+  skipMCPLoading?: boolean;
 }
 
 export interface AgentExecutionResult {
@@ -48,11 +52,84 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
 export class AgentService {
   private logger = getLogger();
   private templateEngine: TemplateEngine;
+  private mcpClient?: MCPClient;
+  private mcpToolsCache: Map<string, MCPTool[]> = new Map();
 
   constructor(
-    private readonly config: Config
+    private readonly config: Config,
+    mcpClient?: MCPClient
   ) {
     this.templateEngine = new TemplateEngine();
+    this.mcpClient = mcpClient;
+  }
+
+  setMCPClient(mcpClient: MCPClient): void {
+    this.mcpClient = mcpClient;
+  }
+
+  async loadMCPTools(servers?: MCPServerConfig[]): Promise<Map<string, MCPTool[]>> {
+    const serverConfigs = servers ?? this.config.mcp?.servers ?? [];
+
+    if (!this.mcpClient || serverConfigs.length === 0) {
+      return new Map();
+    }
+
+    this.logger.info(`Loading MCP tools from ${serverConfigs.length} servers`);
+
+    for (const server of serverConfigs) {
+      try {
+        await this.mcpClient.connect(server);
+        const tools = await this.mcpClient.listTools(server);
+        this.mcpToolsCache.set(server.name, tools);
+        this.logger.debug(`Loaded ${tools.length} tools from MCP server "${server.name}"`);
+      } catch (error) {
+        this.logger.warn(
+          `Failed to load MCP tools from "${server.name}": ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    }
+
+    return this.mcpToolsCache;
+  }
+
+  getMCPTools(): Map<string, MCPTool[]> {
+    return this.mcpToolsCache;
+  }
+
+  formatMCPToolsForPrompt(): string {
+    if (this.mcpToolsCache.size === 0) {
+      return '';
+    }
+
+    const lines: string[] = ['## Available MCP Tools\n'];
+
+    for (const [serverName, tools] of this.mcpToolsCache.entries()) {
+      lines.push(`\n### ${serverName}\n`);
+      for (const tool of tools) {
+        lines.push(`- **${tool.name}**`);
+        if (tool.description) {
+          lines.push(`  ${tool.description}`);
+        }
+        if (
+          tool.inputSchema &&
+          typeof tool.inputSchema === 'object' &&
+          'properties' in tool.inputSchema
+        ) {
+          const props =
+            (
+              tool.inputSchema as {
+                properties?: Record<string, { description?: string; type?: string }>;
+              }
+            ).properties ?? {};
+          const paramNames = Object.keys(props);
+          if (paramNames.length > 0) {
+            lines.push(`  Parameters: ${paramNames.join(', ')}`);
+          }
+        }
+      }
+    }
+
+    return lines.join('\n');
   }
 
   /**
@@ -64,24 +141,33 @@ export class AgentService {
     const plan = task.plan;
 
     if (!plan) {
-      throw new AgentExecutionError(
-        agentConfig.name,
-        `Task "${task.id}" has no plan to execute`,
-        { taskId: task.id }
-      );
+      throw new AgentExecutionError(agentConfig.name, `Task "${task.id}" has no plan to execute`, {
+        taskId: task.id,
+      });
     }
 
-    // 1. Render the plan into an agent prompt
-    const prompt = this.renderPlanPrompt(task, plan, options.templateName);
+    // 1. Load MCP tools if not already loaded
+    if (!options.skipMCPLoading && this.mcpToolsCache.size === 0) {
+      await this.loadMCPTools();
+    }
 
-    // 2. Create a temp file with the prompt
+    // 2. Render the plan into an agent prompt
+    let prompt = this.renderPlanPrompt(task, plan, options.templateName);
+
+    // 3. Add MCP tools to the prompt if available
+    const mcpToolsPrompt = this.formatMCPToolsForPrompt();
+    if (mcpToolsPrompt) {
+      prompt += '\n\n' + mcpToolsPrompt;
+    }
+
+    // 4. Create a temp file with the prompt
     const tmpFile = this.writeTempFile(prompt);
 
-    // 3. Build environment variables (merge agent-specific env)
+    // 5. Build environment variables (merge agent-specific env)
     const mergedExtraEnv = { ...agentConfig.env, ...options.extraEnv };
     const env = this.buildEnvVars(task, prompt, tmpFile, mergedExtraEnv);
 
-    // 4. Spawn the agent process
+    // 6. Spawn the agent process
     const timeout = options.timeout ?? agentConfig.timeout;
     const result = await this.spawnAgent(agentConfig, env, timeout, options.cwd);
 
@@ -194,7 +280,7 @@ Implement all steps completely. Do not skip any steps.`;
     extraEnv?: Record<string, string>
   ): Record<string, string> {
     const env: Record<string, string> = {
-      ...process.env as Record<string, string>,
+      ...(process.env as Record<string, string>),
       TRAYCER_PROMPT: prompt,
       TRAYCER_PROMPT_TMP_FILE: tmpFile,
       TRAYCER_TASK_ID: task.id,
@@ -272,11 +358,9 @@ Implement all steps completely. Do not skip any steps.`;
       child.on('error', (error) => {
         clearTimeout(timer);
         reject(
-          new AgentExecutionError(
-            agentConfig.name,
-            `Agent process error: ${error.message}`,
-            { command: agentConfig.command }
-          )
+          new AgentExecutionError(agentConfig.name, `Agent process error: ${error.message}`, {
+            command: agentConfig.command,
+          })
         );
       });
 

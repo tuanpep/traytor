@@ -47,7 +47,11 @@ export class PhaseGenerator {
   /**
    * Generate phases for a complex task by asking the LLM to break it down.
    */
-  async generate(query: string, specificFiles?: string[], previousPhases?: Phase[]): Promise<Phase[]> {
+  async generate(
+    query: string,
+    specificFiles?: string[],
+    previousPhases?: Phase[]
+  ): Promise<Phase[]> {
     this.logger.info(`Generating phases for: ${query}`);
 
     // 1. Gather project context
@@ -75,9 +79,11 @@ export class PhaseGenerator {
 
     this.logger.debug('Phase prompt built, sending to LLM...');
 
-    // 5. Call LLM
+    // 5. Call LLM with step-level profile
+    const stepOptions = this.llmService.getStepOptions('planning');
     const response = await this.llmService.complete(prompt, {
-      maxTokens: 4096,
+      ...stepOptions,
+      maxTokens: stepOptions.maxTokens ?? 4096,
     });
 
     this.logger.info('LLM response received, parsing phases...');
@@ -139,7 +145,9 @@ export class PhaseGenerator {
       .map(([lang, info]) => `${lang} (${info.files} files, ${info.lines} lines)`)
       .join(', ');
     parts.push(`Languages: ${langSummary}`);
-    parts.push(`Total files: ${context.summary.totalFiles}, Total lines: ${context.summary.totalLines}`);
+    parts.push(
+      `Total files: ${context.summary.totalFiles}, Total lines: ${context.summary.totalLines}`
+    );
 
     if (context.packageJson) {
       const pkg = context.packageJson;
@@ -160,7 +168,7 @@ export class PhaseGenerator {
     const now = new Date().toISOString();
 
     // Match ## Phase N: Title or ## Phase N - Title patterns
-    const phaseRegex = /^#{2,3}\s+Phase\s+(\d+)\s*[:\-\—]\s*(.+)$/gim;
+    const phaseRegex = /^#{2,3}\s+Phase\s+(\d+)\s*[-:—]\s*(.+)$/gim;
     let match: RegExpExecArray | null;
     const phaseMatches: { index: number; phaseNum: number; title: string }[] = [];
 
@@ -249,7 +257,11 @@ export function buildContextCarryOver(completedPhases: Phase[]): PhaseContextCar
     // Collect files from execution if available
     if (phase.execution?.history) {
       for (const entry of phase.execution.history) {
-        if (entry.action.includes('file') || entry.action.includes('create') || entry.action.includes('modify')) {
+        if (
+          entry.action.includes('file') ||
+          entry.action.includes('create') ||
+          entry.action.includes('modify')
+        ) {
           // Extract file references from history entries
           const fileRefs = entry.details?.match(/`[^`]*\.\w+`/g);
           if (fileRefs) {

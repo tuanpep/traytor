@@ -1,5 +1,13 @@
 import type { Task, TaskHistoryEntry } from '../models/task.js';
-import type { Epic, Spec, Ticket, SpecType, TicketStatus, Workflow, WorkflowStep } from '../models/epic.js';
+import type {
+  Epic,
+  Spec,
+  Ticket,
+  SpecType,
+  TicketStatus,
+  Workflow,
+  WorkflowStep,
+} from '../models/epic.js';
 import { createSpecId, createTicketId, createWorkflowStepId } from '../models/epic.js';
 import {
   TaskNotFoundError,
@@ -14,7 +22,8 @@ export class EpicService {
 
   // ─── Epic Task Methods ───────────────────────────────────────────────
 
-  async createEpicTask(query: string, _workingDir: string): Promise<Task> {
+  async createEpicTask(query: string, workingDir: string): Promise<Task> {
+    void workingDir;
     const now = new Date().toISOString();
     const epic: Epic = {
       id: createEpicId(),
@@ -283,7 +292,9 @@ export class EpicService {
   async updateTicket(
     taskId: string,
     ticketId: string,
-    updates: Partial<Pick<Ticket, 'title' | 'description' | 'acceptanceCriteria' | 'assignee' | 'linkedSpecs'>>
+    updates: Partial<
+      Pick<Ticket, 'title' | 'description' | 'acceptanceCriteria' | 'assignee' | 'linkedSpecs'>
+    >
   ): Promise<Ticket> {
     const task = await this.taskRepository.findById(taskId);
     if (!task || !task.epic) {
@@ -297,7 +308,8 @@ export class EpicService {
 
     if (updates.title !== undefined) ticket.title = updates.title;
     if (updates.description !== undefined) ticket.description = updates.description;
-    if (updates.acceptanceCriteria !== undefined) ticket.acceptanceCriteria = updates.acceptanceCriteria;
+    if (updates.acceptanceCriteria !== undefined)
+      ticket.acceptanceCriteria = updates.acceptanceCriteria;
     if (updates.assignee !== undefined) ticket.assignee = updates.assignee;
     if (updates.linkedSpecs !== undefined) ticket.linkedSpecs = updates.linkedSpecs;
 
@@ -336,7 +348,10 @@ export class EpicService {
 
   // ─── Workflow Methods ────────────────────────────────────────────────
 
-  async setWorkflow(taskId: string, workflow: { name: string; steps: Omit<WorkflowStep, 'id'>[] }): Promise<Workflow> {
+  async setWorkflow(
+    taskId: string,
+    workflow: { name: string; steps: Omit<WorkflowStep, 'id'>[] }
+  ): Promise<Workflow> {
     const task = await this.taskRepository.findById(taskId);
     if (!task || !task.epic) {
       throw new EpicNotFoundError(taskId);

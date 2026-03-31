@@ -82,7 +82,10 @@ const JS_TS_PATTERNS: {
   // Functions: function name(), const name = () =>, const name = function()
   { kind: 'function', regex: /(?:export\s+)?(?:async\s+)?function\s+(\w+)/g },
   { kind: 'function', regex: /(?:export\s+)?const\s+(\w+)\s*=\s*(?:async\s*)?\(/g },
-  { kind: 'function', regex: /(?:export\s+)?const\s+(\w+)\s*=\s*(?:async\s*)?(?:\([^)]*\)\s*|[^=])=>/g },
+  {
+    kind: 'function',
+    regex: /(?:export\s+)?const\s+(\w+)\s*=\s*(?:async\s*)?(?:\([^)]*\)\s*|[^=])=>/g,
+  },
   // Classes
   { kind: 'class', regex: /(?:export\s+)?(?:abstract\s+)?class\s+(\w+)/g },
   // Interfaces
@@ -155,13 +158,31 @@ export class FileAnalyzer {
     };
   }
 
+  analyzeSync(): Codebase {
+    this.logger.info(`Analyzing codebase at ${this.rootPath} (sync)`);
+
+    const filePaths = this.scanFilesSync();
+    const files = this.analyzeFiles(filePaths);
+    const structure = this.buildDirectoryTree(files);
+    const imports = this.buildImportMap(files);
+    const exports = this.buildExportMap(files);
+    const summary = this.buildSummary(files);
+
+    return {
+      rootPath: this.rootPath,
+      files,
+      structure,
+      imports,
+      exports,
+      summary,
+    };
+  }
+
   private async scanFiles(): Promise<string[]> {
     // Common directories to always ignore
     const defaultIgnores = ['node_modules', '.git', 'dist', 'build', '.next', '.nuxt', 'coverage'];
 
-    const patterns = Array.from(SUPPORTED_EXTENSIONS).map(
-      (ext) => `**/*${ext}`
-    );
+    const patterns = Array.from(SUPPORTED_EXTENSIONS).map((ext) => `**/*${ext}`);
 
     const allFiles = await glob(patterns, {
       cwd: this.rootPath,
@@ -176,12 +197,39 @@ export class FileAnalyzer {
       return !this.gitignore.ignores(relativePath);
     });
 
-    this.logger.debug(`Found ${allFiles.length} files, ${filtered.length} after .gitignore filtering`);
+    this.logger.debug(
+      `Found ${allFiles.length} files, ${filtered.length} after .gitignore filtering`
+    );
+    return filtered;
+  }
+
+  private scanFilesSync(): string[] {
+    const defaultIgnores = ['node_modules', '.git', 'dist', 'build', '.next', '.nuxt', 'coverage'];
+
+    const patterns = Array.from(SUPPORTED_EXTENSIONS).map((ext) => `**/*${ext}`);
+
+    const allFiles = glob.sync(patterns, {
+      cwd: this.rootPath,
+      absolute: true,
+      ignore: defaultIgnores.map((dir) => `**/${dir}/**`),
+      dot: false,
+    });
+
+    const filtered = allFiles.filter((filePath) => {
+      const relativePath = path.relative(this.rootPath, filePath);
+      return !this.gitignore.ignores(relativePath);
+    });
+
+    this.logger.debug(
+      `Found ${allFiles.length} files, ${filtered.length} after .gitignore filtering (sync)`
+    );
     return filtered;
   }
 
   private analyzeFiles(filePaths: string[]): AnalyzedFile[] {
-    return filePaths.map((filePath) => this.analyzeFile(filePath)).filter((f): f is AnalyzedFile => f !== null);
+    return filePaths
+      .map((filePath) => this.analyzeFile(filePath))
+      .filter((f): f is AnalyzedFile => f !== null);
   }
 
   private analyzeFile(filePath: string): AnalyzedFile | null {
@@ -215,7 +263,11 @@ export class FileAnalyzer {
     }
   }
 
-  private extractSymbols(content: string, language: SupportedLanguage, relativePath: string): SymbolReference[] {
+  private extractSymbols(
+    content: string,
+    language: SupportedLanguage,
+    relativePath: string
+  ): SymbolReference[] {
     const symbols: SymbolReference[] = [];
     const lines = content.split('\n');
     const patterns = language === 'python' ? PYTHON_PATTERNS : JS_TS_PATTERNS;

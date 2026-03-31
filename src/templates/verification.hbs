@@ -17,22 +17,51 @@ Files: {{#each files}}`{{this}}`{{#unless @last}}, {{/unless}}{{/each}}
 {{{codeChanges}}}
 ```
 
+{{#if previousComments}}
+## Previous Verification Results
+The following comments were found in the previous verification. Focus on comments with status "open".
+
+{{#each previousComments}}
+- **Comment ID:** {{id}}
+- **Status:** {{status}}
+- **File:** {{file}}
+- **Severity:** {{category}}
+- **Message:** {{message}}
+{{#if suggestion}}
+- **Suggestion:** {{suggestion}}
+{{/if}}
+
+{{/each}}
+{{/if}}
+
 ## Instructions
 
-Review the implementation against the plan and provide feedback in this format:
+Respond ONLY with valid JSON in the following format. Do not include any other text before or after the JSON.
 
-### Verification Summary
-- [ ] All plan steps are implemented
-- [ ] No unintended side effects introduced
-- [ ] Code follows project conventions
-- [ ] Error handling is appropriate
+```json
+{
+  "comments": [
+    {
+      "file": "path/to/file.ts",
+      "line": 42,
+      "category": "critical|major|minor|outdated",
+      "message": "Issue description",
+      "suggestion": "How to fix it"
+    }
+  ],
+  "assessment": "APPROVED|NEEDS_CHANGES"
+}
+```
 
-### Issues Found
-For each issue:
-- **File:** `path/to/file.ts`
-- **Severity:** error | warning | suggestion
-- **Description:** What the issue is
-- **Suggestion:** How to fix it
+**Category definitions:**
+- **critical**: Blocks core functionality or plan requirements, must be fixed first
+- **major**: Significant issues that affect behavior or UX but may have workarounds
+- **minor**: Small polish items that don't block functionality
+- **outdated**: Comments that are no longer relevant due to changes in the implementation
 
-### Overall Assessment
-APPROVED or NEEDS_CHANGES with explanation
+**Rules:**
+1. Only include issues that deviate from the plan or introduce bugs
+2. Be specific about file paths and line numbers when possible
+3. Provide actionable suggestions for each issue
+4. If no issues are found, return an empty comments array with "APPROVED" assessment
+5. If {{#if previousComments}}re-verifying, focus on previously open comments and check if they are resolved{{else}}perform a full verification{{/if}}

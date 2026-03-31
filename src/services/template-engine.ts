@@ -17,6 +17,14 @@ export interface VerificationPromptData {
     files: string[];
   }[];
   codeChanges: string;
+  previousComments?: {
+    id: string;
+    status: string;
+    file?: string;
+    category: string;
+    message: string;
+    suggestion?: string;
+  }[];
 }
 
 export interface ReviewPromptData {
@@ -152,7 +160,8 @@ export class TemplateEngine {
 
     // List builtin templates
     try {
-      const builtinFiles = fs.readdirSync(this.builtinTemplateDir)
+      const builtinFiles = fs
+        .readdirSync(this.builtinTemplateDir)
         .filter((f) => f.endsWith('.hbs'));
       for (const file of builtinFiles) {
         const name = file.replace('.hbs', '');
@@ -169,7 +178,8 @@ export class TemplateEngine {
     // List custom templates (may override builtins)
     if (this.customTemplateDir) {
       try {
-        const customFiles = fs.readdirSync(this.customTemplateDir)
+        const customFiles = fs
+          .readdirSync(this.customTemplateDir)
           .filter((f) => f.endsWith('.hbs'));
         for (const file of customFiles) {
           const name = file.replace('.hbs', '');

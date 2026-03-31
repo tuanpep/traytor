@@ -18,6 +18,7 @@ export interface LLMOptions {
   maxTokens?: number;
   system?: string;
   temperature?: number;
+  disableThinking?: boolean;
 }
 
 export type StreamCallback = (chunk: string) => void;

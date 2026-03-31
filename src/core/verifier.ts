@@ -22,6 +22,10 @@ export interface VerificationOptions {
   maxRetries?: number;
   /** Working directory to analyze (default: process.cwd()) */
   workingDir?: string;
+  /** Verification mode: fresh (full analysis) or reverify (focus on open comments) */
+  mode?: 'fresh' | 'reverify';
+  /** Severity levels to include in verification results */
+  severityFilter?: ('critical' | 'major' | 'minor')[];
 }
 
 // ─── File Comparison Result ─────────────────────────────────────────────────
@@ -53,13 +57,14 @@ export class Verifier {
    */
   async verify(task: Task, options: VerificationOptions = {}): Promise<Verification> {
     if (!task.plan) {
-      throw new VerificationError(
-        `Task "${task.id}" has no plan to verify against`,
-        { taskId: task.id }
-      );
+      throw new VerificationError(`Task "${task.id}" has no plan to verify against`, {
+        taskId: task.id,
+      });
     }
 
-    this.logger.info(`Verifying task ${task.id} against plan ${task.plan.id}`);
+    this.logger.info(
+      `Verifying task ${task.id} against plan ${task.plan.id} (mode: ${options.mode || 'fresh'})`
+    );
 
     // 1. Analyze current codebase
     const codebase = await this.analyzeCodebase();
@@ -80,16 +85,32 @@ export class Verifier {
       codeChanges,
     };
 
+    // 4. Handle re-verify mode
+    if (options.mode === 'reverify' && task.verification) {
+      const openComments = task.verification.comments.filter((c) => c.status === 'open');
+      if (openComments.length > 0) {
+        verificationData.previousComments = openComments.map((c) => ({
+          id: c.id,
+          status: c.status,
+          file: c.file,
+          category: c.category,
+          message: c.message,
+          suggestion: c.suggestion,
+        }));
+        this.logger.info(`Re-verifying with ${openComments.length} open comments`);
+      }
+    }
+
     const prompt = this.templateEngine.renderVerificationTemplate(verificationData);
 
-    // 4. Call LLM for verification analysis
+    // 5. Call LLM for verification analysis
     const maxRetries = options.maxRetries ?? 3;
     const llmResponse = await this.callLLMWithRetry(prompt, maxRetries);
 
-    // 5. Parse verification comments
+    // 6. Parse verification comments
     const comments = this.parseVerificationResponse(llmResponse.content);
 
-    // 6. Build summary
+    // 7. Build summary
     const summary = this.buildSummary(comments, fileComparison);
 
     return {
@@ -109,10 +130,9 @@ export class Verifier {
     options: VerificationOptions & { onChunk?: StreamCallback } = {}
   ): Promise<Verification> {
     if (!task.plan) {
-      throw new VerificationError(
-        `Task "${task.id}" has no plan to verify against`,
-        { taskId: task.id }
-      );
+      throw new VerificationError(`Task "${task.id}" has no plan to verify against`, {
+        taskId: task.id,
+      });
     }
 
     this.logger.info(`Streaming verification for task ${task.id}`);
@@ -142,7 +162,9 @@ export class Verifier {
     const maxRetries = options.maxRetries ?? 3;
     const llmResponse = await this.callLLMStreamWithRetry(prompt, maxRetries, options.onChunk);
 
-    spinner.succeed(`Verification complete (${llmResponse.usage.inputTokens + llmResponse.usage.outputTokens} tokens)`);
+    spinner.succeed(
+      `Verification complete (${llmResponse.usage.inputTokens + llmResponse.usage.outputTokens} tokens)`
+    );
     process.stdout.write('\n');
 
     const comments = this.parseVerificationResponse(llmResponse.content);
@@ -184,7 +206,8 @@ export class Verifier {
 
     for (const plannedFile of plannedFiles) {
       // Check if the file exists in the codebase (match by relative path or basename)
-      const found = actualFiles.has(plannedFile) ||
+      const found =
+        actualFiles.has(plannedFile) ||
         codebase.files.some((f) => f.relativePath.endsWith(plannedFile));
 
       if (found) {
@@ -196,8 +219,8 @@ export class Verifier {
 
     // Check for files in codebase that weren't in the plan
     for (const actualFile of actualFiles) {
-      const isInPlan = plannedFiles.has(actualFile) ||
-        [...plannedFiles].some((p) => actualFile.endsWith(p));
+      const isInPlan =
+        plannedFiles.has(actualFile) || [...plannedFiles].some((p) => actualFile.endsWith(p));
       if (!isInPlan) {
         created.push(actualFile);
       }
@@ -229,9 +252,8 @@ export class Verifier {
         try {
           const content = fs.readFileSync(analyzedFile.path, 'utf-8');
           // Truncate large files
-          const truncated = content.length > 5000
-            ? content.slice(0, 5000) + '\n// ... (truncated)'
-            : content;
+          const truncated =
+            content.length > 5000 ? content.slice(0, 5000) + '\n// ... (truncated)' : content;
           sections.push(`--- ${filePath} ---\n${truncated}`);
         } catch {
           sections.push(`--- ${filePath} ---\n// (unable to read file)`);
@@ -250,11 +272,14 @@ export class Verifier {
   private async callLLMWithRetry(prompt: string, maxRetries: number): Promise<{ content: string }> {
     let lastError: Error | null = null;
 
+    const stepOptions = this.llmService.getStepOptions('verification');
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         this.logger.debug(`LLM verification attempt ${attempt}/${maxRetries}`);
         const response = await this.llmService.complete(prompt, {
-          maxTokens: 4096,
+          ...stepOptions,
+          maxTokens: stepOptions.maxTokens ?? 4096,
         });
         return response;
       } catch (error) {
@@ -268,7 +293,7 @@ export class Verifier {
     }
 
     throw new VerificationError(
-      `LLM verification failed after ${maxRetries} attempts: ${lastError?.message}`,
+      `LLM verification failed after ${maxRetries} attempt${maxRetries > 1 ? 's' : ''}: ${lastError?.message}`,
       { attempts: maxRetries }
     );
   }
@@ -293,7 +318,9 @@ export class Verifier {
         return response;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
-        this.logger.warn(`LLM streaming verification attempt ${attempt} failed: ${lastError.message}`);
+        this.logger.warn(
+          `LLM streaming verification attempt ${attempt} failed: ${lastError.message}`
+        );
 
         if (attempt < maxRetries) {
           await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
@@ -309,18 +336,29 @@ export class Verifier {
 
   /**
    * Parse the LLM verification response into structured comments.
+   * Tries JSON parsing first, falls back to regex-based parsing.
    */
   parseVerificationResponse(response: string): VerificationComment[] {
     const comments: VerificationComment[] = [];
 
-    // Parse severity-based issues from the response
-    // Match patterns like:
-    // - **Severity:** error | warning | suggestion
-    // - **File:** `path/to/file`
-    // - **Description:** text
-    // - **Suggestion:** text
+    // Try JSON parsing first
+    const jsonResult = this.tryParseJson(response);
+    if (jsonResult) {
+      for (const item of jsonResult) {
+        comments.push({
+          id: createVerificationCommentId(),
+          category: this.normalizeCategory(item.category),
+          file: item.file,
+          line: item.line,
+          message: item.message,
+          suggestion: item.suggestion,
+          status: 'open',
+        });
+      }
+      return comments;
+    }
 
-    // Also match more casual formats
+    // Fall back to regex-based parsing
     const issueBlocks = this.extractIssueBlocks(response);
 
     for (const block of issueBlocks) {
@@ -331,6 +369,73 @@ export class Verifier {
     }
 
     return comments;
+  }
+
+  /**
+   * Try to parse JSON from the LLM response.
+   * Handles both raw JSON and JSON wrapped in markdown code blocks.
+   */
+  private tryParseJson(response: string): Array<{
+    file?: string;
+    line?: number;
+    category: string;
+    message: string;
+    suggestion?: string;
+  }> | null {
+    // Try to extract JSON from markdown code blocks
+    const codeBlockMatch = response.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
+    const jsonStr = codeBlockMatch ? codeBlockMatch[1].trim() : response.trim();
+
+    try {
+      const parsed = JSON.parse(jsonStr);
+      if (parsed.comments && Array.isArray(parsed.comments)) {
+        return parsed.comments;
+      }
+    } catch {
+      // Not valid JSON, fall back to regex
+    }
+
+    // Try to find JSON object in the response
+    const jsonMatch = response.match(/\{[\s\S]*"comments"[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.comments && Array.isArray(parsed.comments)) {
+          return parsed.comments;
+        }
+      } catch {
+        // Not valid JSON
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Normalize category string to VerificationCategory.
+   */
+  private normalizeCategory(category?: string): VerificationCategory {
+    if (!category) return 'minor';
+    const normalized = category.toLowerCase();
+    switch (normalized) {
+      case 'critical':
+      case 'error':
+      case 'blocker':
+        return 'critical';
+      case 'major':
+      case 'warning':
+      case 'high':
+        return 'major';
+      case 'minor':
+      case 'suggestion':
+      case 'info':
+      case 'low':
+        return 'minor';
+      case 'outdated':
+        return 'outdated';
+      default:
+        return 'minor';
+    }
   }
 
   /**
@@ -351,7 +456,9 @@ export class Verifier {
       // Start of a new issue block (skip checklist items like - [x] or - [ ])
       if (
         trimmed.match(/^\d+\.\s/) ||
-        (trimmed.match(/^[-*]\s/) && !trimmed.match(/^[-*]\s*\[[ x]\]/i) && !trimmed.match(/^[-*]\s*\*+/)) ||
+        (trimmed.match(/^[-*]\s/) &&
+          !trimmed.match(/^[-*]\s*\[[ x]\]/i) &&
+          !trimmed.match(/^[-*]\s*\*+/)) ||
         trimmed.match(/^###?\s+Issue/i)
       ) {
         if (inBlock && currentBlock.length > 0) {
@@ -361,12 +468,11 @@ export class Verifier {
         inBlock = true;
       } else if (inBlock) {
         // Check if we've hit a section boundary
-        if (
-          trimmed.match(/^#{1,4}\s/) ||
-          trimmed.match(/^---/) ||
-          trimmed === ''
-        ) {
-          if (currentBlock.length > 0 && currentBlock.some((l) => l.includes('Severity') || l.includes('Description'))) {
+        if (trimmed.match(/^#{1,4}\s/) || trimmed.match(/^---/) || trimmed === '') {
+          if (
+            currentBlock.length > 0 &&
+            currentBlock.some((l) => l.includes('Severity') || l.includes('Description'))
+          ) {
             blocks.push(currentBlock.join('\n'));
           }
           currentBlock = [];
@@ -378,7 +484,10 @@ export class Verifier {
     }
 
     // Don't forget the last block
-    if (currentBlock.length > 0 && currentBlock.some((l) => l.includes('Severity') || l.includes('Description'))) {
+    if (
+      currentBlock.length > 0 &&
+      currentBlock.some((l) => l.includes('Severity') || l.includes('Description'))
+    ) {
       blocks.push(currentBlock.join('\n'));
     }
 
@@ -389,15 +498,18 @@ export class Verifier {
    * Parse a single issue block into a VerificationComment.
    */
   private parseIssueBlock(block: string): VerificationComment | null {
-    const fileMatch = block.match(/\*\*File:\*\*\s*`([^`]+)`/i) ||
+    const fileMatch =
+      block.match(/\*\*File:\*\*\s*`([^`]+)`/i) ||
       block.match(/File:\s*`([^`]+)`/i) ||
       block.match(/file:\s*(\S+\.\w+)/i);
-    const severityMatch = block.match(/\*\*Severity:\*\*\s*(\w+)/i) ||
-      block.match(/Severity:\s*(\w+)/i);
-    const descriptionMatch = block.match(/\*\*Description:\*\*\s*(.+?)(?=\n\*\*|\n\n|$)/is) ||
+    const severityMatch =
+      block.match(/\*\*Severity:\*\*\s*(\w+)/i) || block.match(/Severity:\s*(\w+)/i);
+    const descriptionMatch =
+      block.match(/\*\*Description:\*\*\s*(.+?)(?=\n\*\*|\n\n|$)/is) ||
       block.match(/Description:\s*(.+?)(?=\n\*|\n\n|$)/is);
 
-    const suggestionMatch = block.match(/\*\*Suggestion:\*\*\s*(.+?)(?=\n\*\*|\n\n|$)/is) ||
+    const suggestionMatch =
+      block.match(/\*\*Suggestion:\*\*\s*(.+?)(?=\n\*\*|\n\n|$)/is) ||
       block.match(/Suggestion:\s*(.+?)(?=\n\*|\n\n|$)/is);
 
     const lineMatch = block.match(/line\s+(\d+)/i);
@@ -474,13 +586,19 @@ export class Verifier {
 
     // File comparison
     if (fileComparison.missing.length > 0) {
-      parts.push(`\nMissing files (${fileComparison.missing.length}): ${fileComparison.missing.join(', ')}`);
+      parts.push(
+        `\nMissing files (${fileComparison.missing.length}): ${fileComparison.missing.join(', ')}`
+      );
     }
     if (fileComparison.created.length > 0) {
-      parts.push(`\nUnexpected files (${fileComparison.created.length}): ${fileComparison.created.join(', ')}`);
+      parts.push(
+        `\nUnexpected files (${fileComparison.created.length}): ${fileComparison.created.join(', ')}`
+      );
     }
     if (fileComparison.present.length > 0) {
-      parts.push(`\nImplemented files (${fileComparison.present.length}): ${fileComparison.present.join(', ')}`);
+      parts.push(
+        `\nImplemented files (${fileComparison.present.length}): ${fileComparison.present.join(', ')}`
+      );
     }
 
     // Overall assessment

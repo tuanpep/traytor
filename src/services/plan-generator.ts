@@ -68,9 +68,11 @@ export class PlanGenerator {
 
     this.logger.debug('Plan prompt built, sending to LLM...');
 
-    // 5. Call LLM
+    // 5. Call LLM with step-level profile
+    const stepOptions = this.llmService.getStepOptions('planning');
     const response = await this.llmService.complete(prompt, {
-      maxTokens: 4096,
+      ...stepOptions,
+      maxTokens: stepOptions.maxTokens ?? 4096,
     });
 
     this.logger.info('LLM response received, parsing plan...');
@@ -127,7 +129,9 @@ export class PlanGenerator {
       },
     });
 
-    spinner.succeed(`Plan generated (${response.usage.inputTokens + response.usage.outputTokens} tokens)`);
+    spinner.succeed(
+      `Plan generated (${response.usage.inputTokens + response.usage.outputTokens} tokens)`
+    );
     process.stdout.write('\n');
 
     const plan = this.parsePlanResponse(response.content, query);
@@ -179,7 +183,9 @@ export class PlanGenerator {
       .map(([lang, info]) => `${lang} (${info.files} files, ${info.lines} lines)`)
       .join(', ');
     parts.push(`Languages: ${langSummary}`);
-    parts.push(`Total files: ${context.summary.totalFiles}, Total lines: ${context.summary.totalLines}`);
+    parts.push(
+      `Total files: ${context.summary.totalFiles}, Total lines: ${context.summary.totalLines}`
+    );
 
     if (context.packageJson) {
       const pkg = context.packageJson;
@@ -221,7 +227,7 @@ export class PlanGenerator {
     const steps: PlanStep[] = [];
 
     // Match ## Step N: Title or ## Step N - Title or ### Step N: Title patterns
-    const stepRegex = /^#{2,3}\s+Step\s+(\d+)\s*[:\-\—]\s*(.+)$/gim;
+    const stepRegex = /^#{2,3}\s+Step\s+(\d+)\s*[-:—]\s*(.+)$/gim;
     let match: RegExpExecArray | null;
     const stepMatches: { index: number; stepNum: number; title: string }[] = [];
 
@@ -275,14 +281,16 @@ export class PlanGenerator {
     const files = new Set<string>();
 
     // Pattern 1: Backtick file references like `src/file.ts`
-    const backtickPattern = /`([^`]*\.(?:ts|tsx|js|jsx|py|go|rs|java|vue|svelte|json|yaml|yml|md|css|scss|html|xml))`/gi;
+    const backtickPattern =
+      /`([^`]*\.(?:ts|tsx|js|jsx|py|go|rs|java|vue|svelte|json|yaml|yml|md|css|scss|html|xml))`/gi;
     let m: RegExpExecArray | null;
     while ((m = backtickPattern.exec(block)) !== null) {
       files.add(m[1].trim());
     }
 
     // Pattern 2: Bare file paths with extensions in square brackets
-    const bracketPattern = /\[([^\]]*\.(?:ts|tsx|js|jsx|py|go|rs|java|vue|svelte|json|yaml|yml|md|css|scss|html|xml))\]/gi;
+    const bracketPattern =
+      /\[([^\]]*\.(?:ts|tsx|js|jsx|py|go|rs|java|vue|svelte|json|yaml|yml|md|css|scss|html|xml))\]/gi;
     while ((m = bracketPattern.exec(block)) !== null) {
       files.add(m[1].trim());
     }
@@ -309,16 +317,12 @@ export class PlanGenerator {
 
   private parseRationale(markdown: string): string {
     // Look for a Rationale section
-    const rationaleMatch = markdown.match(
-      /^#{1,3}\s+Rationale\s*\n([\s\S]*?)(?=^#{1,3}\s|\Z)/gim
-    );
+    const rationaleMatch = markdown.match(/^#{1,3}\s+Rationale\s*\n([\s\S]*?)(?=^#{1,3}\s|$)/gim);
 
     if (rationaleMatch && rationaleMatch.length > 0) {
       // Remove the header line from each match
       return rationaleMatch
-        .map((section) =>
-          section.replace(/^#{1,3}\s+Rationale\s*\n?/i, '').trim()
-        )
+        .map((section) => section.replace(/^#{1,3}\s+Rationale\s*\n?/i, '').trim())
         .join('\n\n');
     }
 

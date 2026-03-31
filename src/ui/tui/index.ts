@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import inquirer from 'inquirer';
-import type { Task } from '../../models/task.js';
+import type { Task, TaskStatus, TaskType } from '../../models/task.js';
 import type { Verification } from '../../models/verification.js';
 import type { TaskService } from '../../services/task.service.js';
 import { buildDashboard, renderDashboard } from './dashboard.js';
@@ -32,6 +32,7 @@ export async function runTUI(taskService: TaskService): Promise<void> {
   let planState: PlanViewerState = { currentStep: 0, showCode: false };
   let taskFilter: TaskListFilter = {};
 
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     const tasks = await taskService.listTasks();
 
@@ -40,16 +41,18 @@ export async function runTUI(taskService: TaskService): Promise<void> {
         const data = buildDashboard(tasks);
         process.stdout.write(renderDashboard(data) + '\n');
 
-        const { action } = await inquirer.prompt([{
-          type: 'select',
-          name: 'action',
-          message: 'Navigate:',
-          choices: [
-            { name: 'Task List', value: 'tasks' },
-            { name: 'Refresh Dashboard', value: 'dashboard' },
-            { name: 'Quit', value: 'quit' },
-          ],
-        }]);
+        const { action } = await inquirer.prompt([
+          {
+            type: 'select',
+            name: 'action',
+            message: 'Navigate:',
+            choices: [
+              { name: 'Task List', value: 'tasks' },
+              { name: 'Refresh Dashboard', value: 'dashboard' },
+              { name: 'Quit', value: 'quit' },
+            ],
+          },
+        ]);
 
         if (action === 'quit') return;
         if (action !== 'dashboard') currentView = action as TUIView;
@@ -66,20 +69,22 @@ export async function runTUI(taskService: TaskService): Promise<void> {
           process.stdout.write(renderTaskList(filtered) + '\n');
         }
 
-        const { action } = await inquirer.prompt([{
-          type: 'select',
-          name: 'action',
-          message: 'Tasks:',
-          choices: [
-            ...(tasks.length > 0 ? [{ name: 'Select task...', value: 'select' }] : []),
-            { name: 'Search tasks...', value: 'search' },
-            { name: 'Filter by status...', value: 'filter-status' },
-            { name: 'Filter by type...', value: 'filter-type' },
-            { name: 'Clear filters', value: 'clear-filters' },
-            { name: 'Back to Dashboard', value: 'back' },
-            { name: 'Quit', value: 'quit' },
-          ],
-        }]);
+        const { action } = await inquirer.prompt([
+          {
+            type: 'select',
+            name: 'action',
+            message: 'Tasks:',
+            choices: [
+              ...(tasks.length > 0 ? [{ name: 'Select task...', value: 'select' }] : []),
+              { name: 'Search tasks...', value: 'search' },
+              { name: 'Filter by status...', value: 'filter-status' },
+              { name: 'Filter by type...', value: 'filter-type' },
+              { name: 'Clear filters', value: 'clear-filters' },
+              { name: 'Back to Dashboard', value: 'back' },
+              { name: 'Quit', value: 'quit' },
+            ],
+          },
+        ]);
 
         switch (action) {
           case 'quit':
@@ -112,35 +117,42 @@ export async function runTUI(taskService: TaskService): Promise<void> {
             break;
           }
           case 'filter-status': {
-            const { status } = await inquirer.prompt([{
-              type: 'select',
-              name: 'status',
-              message: 'Filter by status:',
-              choices: [
-                { name: 'All statuses', value: 'all' },
-                { name: chalk.green('Completed'), value: 'completed' },
-                { name: chalk.yellow('In Progress'), value: 'in_progress' },
-                { name: chalk.gray('Pending'), value: 'pending' },
-                { name: chalk.red('Failed'), value: 'failed' },
-              ],
-            }]);
-            taskFilter = { ...taskFilter, status: status === 'all' ? undefined : status as any };
+            const { status } = await inquirer.prompt([
+              {
+                type: 'select',
+                name: 'status',
+                message: 'Filter by status:',
+                choices: [
+                  { name: 'All statuses', value: 'all' },
+                  { name: chalk.green('Completed'), value: 'completed' },
+                  { name: chalk.yellow('In Progress'), value: 'in_progress' },
+                  { name: chalk.gray('Pending'), value: 'pending' },
+                  { name: chalk.red('Failed'), value: 'failed' },
+                ],
+              },
+            ]);
+            taskFilter = {
+              ...taskFilter,
+              status: status === 'all' ? undefined : (status as TaskStatus),
+            };
             break;
           }
           case 'filter-type': {
-            const { type } = await inquirer.prompt([{
-              type: 'select',
-              name: 'type',
-              message: 'Filter by type:',
-              choices: [
-                { name: 'All types', value: 'all' },
-                { name: 'Plan', value: 'plan' },
-                { name: 'Phases', value: 'phases' },
-                { name: 'Review', value: 'review' },
-                { name: 'Epic', value: 'epic' },
-              ],
-            }]);
-            taskFilter = { ...taskFilter, type: type === 'all' ? undefined : type as any };
+            const { type } = await inquirer.prompt([
+              {
+                type: 'select',
+                name: 'type',
+                message: 'Filter by type:',
+                choices: [
+                  { name: 'All types', value: 'all' },
+                  { name: 'Plan', value: 'plan' },
+                  { name: 'Phases', value: 'phases' },
+                  { name: 'Review', value: 'review' },
+                  { name: 'Epic', value: 'epic' },
+                ],
+              },
+            ]);
+            taskFilter = { ...taskFilter, type: type === 'all' ? undefined : (type as TaskType) };
             break;
           }
           case 'clear-filters':
@@ -165,7 +177,10 @@ export async function runTUI(taskService: TaskService): Promise<void> {
             currentView = 'tasks';
             break;
           case 'next':
-            planState.currentStep = Math.min(planState.currentStep + 1, currentTask.plan.steps.length - 1);
+            planState.currentStep = Math.min(
+              planState.currentStep + 1,
+              currentTask.plan.steps.length - 1
+            );
             break;
           case 'prev':
             planState.currentStep = Math.max(planState.currentStep - 1, 0);
@@ -207,14 +222,14 @@ export async function runTUI(taskService: TaskService): Promise<void> {
         if (!verification) {
           process.stdout.write(chalk.yellow('\n  No verification results for this task.\n'));
           process.stdout.write(chalk.dim('  Run "sdd verify <task-id>" to generate one.\n\n'));
-          const { action } = await inquirer.prompt([{
-            type: 'select',
-            name: 'action',
-            message: 'Actions:',
-            choices: [
-              { name: 'Back', value: 'back' },
-            ],
-          }]);
+          const { action } = await inquirer.prompt([
+            {
+              type: 'select',
+              name: 'action',
+              message: 'Actions:',
+              choices: [{ name: 'Back', value: 'back' }],
+            },
+          ]);
           if (action === 'back') currentView = 'tasks';
           break;
         }

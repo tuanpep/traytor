@@ -2,6 +2,7 @@ import type { Plan } from '../models/plan.js';
 import type { Task } from '../models/task.js';
 import type { Phase, PhaseStatus } from '../models/phase.js';
 import type { Review } from '../models/review.js';
+import type { Verification } from '../models/verification.js';
 import { createPlanId, createPlanStepId } from '../models/plan.js';
 import { createTaskId } from '../models/task.js';
 import {
@@ -9,6 +10,7 @@ import {
   PlanGenerationError,
   PhaseNotFoundError,
   PhaseGenerationError,
+  VerificationError,
 } from '../utils/errors.js';
 import { TaskRepository } from '../data/repositories/task.repository.js';
 import type { PlanGenerator } from './plan-generator.js';
@@ -36,7 +38,8 @@ export class TaskService {
     this.phaseGenerator = phaseGenerator;
   }
 
-  async createPlanTask(query: string, _workingDir: string): Promise<Task> {
+  async createPlanTask(query: string, workingDir: string): Promise<Task> {
+    void workingDir;
     const now = new Date().toISOString();
     const task: Task = {
       id: createTaskId(),
@@ -56,10 +59,9 @@ export class TaskService {
 
   async generatePlan(task: Task, specificFiles?: string[]): Promise<Plan> {
     if (!this.planGenerator) {
-      throw new PlanGenerationError(
-        'Plan generator not configured',
-        { suggestion: 'Ensure LLM service is properly initialized' }
-      );
+      throw new PlanGenerationError('Plan generator not configured', {
+        suggestion: 'Ensure LLM service is properly initialized',
+      });
     }
 
     try {
@@ -74,10 +76,9 @@ export class TaskService {
       await this.taskRepository.save(task);
 
       if (error instanceof PlanGenerationError) throw error;
-      throw new PlanGenerationError(
-        error instanceof Error ? error.message : String(error),
-        { taskId: task.id }
-      );
+      throw new PlanGenerationError(error instanceof Error ? error.message : String(error), {
+        taskId: task.id,
+      });
     }
   }
 
@@ -93,7 +94,8 @@ export class TaskService {
     await this.taskRepository.save(task);
   }
 
-  async createDraftPlan(_task: Task): Promise<Plan> {
+  async createDraftPlan(task: Task): Promise<Plan> {
+    void task;
     return {
       id: createPlanId(),
       steps: [
@@ -132,14 +134,21 @@ export class TaskService {
 
   async addExecution(
     taskId: string,
-    execution: { status: 'success' | 'failed'; agentId: string; stdout?: string; stderr?: string; exitCode?: number }
+    execution: {
+      status: 'success' | 'failed';
+      agentId: string;
+      stdout?: string;
+      stderr?: string;
+      exitCode?: number;
+    }
   ): Promise<Task> {
     return this.taskRepository.addExecution(taskId, execution);
   }
 
   // ─── Review Task Methods ───────────────────────────────────────────────
 
-  async createReviewTask(query: string, _workingDir: string): Promise<Task> {
+  async createReviewTask(query: string, workingDir: string): Promise<Task> {
+    void workingDir;
     const now = new Date().toISOString();
     const task: Task = {
       id: createTaskId(),
@@ -180,12 +189,68 @@ export class TaskService {
     return task?.review;
   }
 
+  // ─── Verification Methods ───────────────────────────────────────────────
+
+  async saveVerification(taskId: string, verification: Verification): Promise<void> {
+    const task = await this.taskRepository.findById(taskId);
+    if (!task) {
+      throw new TaskNotFoundError(taskId);
+    }
+
+    verification.taskId = taskId;
+    task.verification = verification;
+    task.updatedAt = new Date().toISOString();
+    task.history.push({
+      timestamp: new Date().toISOString(),
+      action: 'verification_completed',
+      details: `Verification ${verification.id} saved with ${verification.comments.length} comments`,
+    });
+    await this.taskRepository.save(task);
+  }
+
+  async getVerification(taskId: string): Promise<Verification | undefined> {
+    const task = await this.taskRepository.findById(taskId);
+    return task?.verification;
+  }
+
+  async updateVerificationCommentStatus(
+    taskId: string,
+    commentId: string,
+    status: 'open' | 'fixed' | 'ignored'
+  ): Promise<void> {
+    const task = await this.taskRepository.findById(taskId);
+    if (!task) {
+      throw new TaskNotFoundError(taskId);
+    }
+
+    if (!task.verification) {
+      throw new VerificationError(`Task "${taskId}" has no verification to update`);
+    }
+
+    const comment = task.verification.comments.find((c) => c.id === commentId);
+    if (!comment) {
+      throw new VerificationError(
+        `Comment "${commentId}" not found in verification for task "${taskId}"`
+      );
+    }
+
+    comment.status = status;
+    task.updatedAt = new Date().toISOString();
+    task.history.push({
+      timestamp: new Date().toISOString(),
+      action: 'verification_comment_updated',
+      details: `Comment ${commentId} status: ${status}`,
+    });
+    await this.taskRepository.save(task);
+  }
+
   // ─── Phases Task Methods ───────────────────────────────────────────────
 
   /**
    * Create a new multi-phase task.
    */
-  async createPhasesTask(query: string, _workingDir: string): Promise<Task> {
+  async createPhasesTask(query: string, workingDir: string): Promise<Task> {
+    void workingDir;
     const now = new Date().toISOString();
     const task: Task = {
       id: createTaskId(),
@@ -209,10 +274,9 @@ export class TaskService {
    */
   async generatePhases(task: Task, specificFiles?: string[]): Promise<Phase[]> {
     if (!this.phaseGenerator) {
-      throw new PhaseGenerationError(
-        'Phase generator not configured',
-        { suggestion: 'Ensure LLM service is properly initialized' }
-      );
+      throw new PhaseGenerationError('Phase generator not configured', {
+        suggestion: 'Ensure LLM service is properly initialized',
+      });
     }
 
     try {
@@ -227,10 +291,9 @@ export class TaskService {
       await this.taskRepository.save(task);
 
       if (error instanceof PhaseGenerationError) throw error;
-      throw new PhaseGenerationError(
-        error instanceof Error ? error.message : String(error),
-        { taskId: task.id }
-      );
+      throw new PhaseGenerationError(error instanceof Error ? error.message : String(error), {
+        taskId: task.id,
+      });
     }
   }
 
@@ -284,8 +347,8 @@ export class TaskService {
     phase.updatedAt = new Date().toISOString();
 
     // Build context carry-over from all completed phases before this one
-    const completedBefore = task.phases!
-      .filter((p) => p.status === 'completed' && p.order < phaseOrder)
+    const completedBefore = task
+      .phases!.filter((p) => p.status === 'completed' && p.order < phaseOrder)
       .sort((a, b) => a.order - b.order);
     phase.contextCarryOver = buildContextCarryOver(completedBefore);
 

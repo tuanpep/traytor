@@ -46,6 +46,13 @@ export interface ReviewPromptData {
   }[];
 }
 
+export interface ReviewFixPromptData {
+  query: string;
+  reviewComments: ReviewComment[];
+  projectContext: string;
+  agentsMd: string | null;
+}
+
 // ─── ReviewGenerator ───────────────────────────────────────────────────────
 
 export class ReviewGenerator {
@@ -80,7 +87,10 @@ export class ReviewGenerator {
     const promptData = this.buildPromptData(query, scope, context, analyzedFiles, options);
 
     // 5. Render the review template
-    const prompt = this.templateEngine.render('review', promptData as unknown as Record<string, unknown>);
+    const prompt = this.templateEngine.render(
+      'review',
+      promptData as unknown as Record<string, unknown>
+    );
 
     this.logger.debug('Review prompt built, sending to LLM...');
 
@@ -128,7 +138,9 @@ export class ReviewGenerator {
       if (changedFiles.length > 0) {
         return { scope: 'branch', files: changedFiles };
       }
-      this.logger.warn(`No changed files found against "${options.against}", falling back to all files`);
+      this.logger.warn(
+        `No changed files found against "${options.against}", falling back to all files`
+      );
     }
 
     // Default: analyze all project files (uncommitted scope means working tree)
@@ -166,10 +178,16 @@ export class ReviewGenerator {
    */
   private analyzeFiles(filePaths: string[], cwd: string): AnalyzedFile[] {
     const extLanguageMap: Record<string, SupportedLanguage> = {
-      '.ts': 'typescript', '.tsx': 'typescript',
-      '.js': 'javascript', '.jsx': 'javascript',
-      '.py': 'python', '.go': 'go', '.rs': 'rust', '.java': 'java',
-      '.vue': 'vue', '.svelte': 'svelte',
+      '.ts': 'typescript',
+      '.tsx': 'typescript',
+      '.js': 'javascript',
+      '.jsx': 'javascript',
+      '.py': 'python',
+      '.go': 'go',
+      '.rs': 'rust',
+      '.java': 'java',
+      '.vue': 'vue',
+      '.svelte': 'svelte',
     };
 
     const analyzed: AnalyzedFile[] = [];
@@ -269,7 +287,9 @@ export class ReviewGenerator {
       .map(([lang, info]) => `${lang} (${info.files} files, ${info.lines} lines)`)
       .join(', ');
     if (langSummary) projectParts.push(`Languages: ${langSummary}`);
-    projectParts.push(`Total files: ${context.summary.totalFiles}, Total lines: ${context.summary.totalLines}`);
+    projectParts.push(
+      `Total files: ${context.summary.totalFiles}, Total lines: ${context.summary.totalLines}`
+    );
     if (context.packageJson) {
       const pkg = context.packageJson;
       if (pkg.name) projectParts.push(`Package: ${pkg.name}`);
@@ -281,9 +301,7 @@ export class ReviewGenerator {
       try {
         const raw = fs.readFileSync(file.path, 'utf-8');
         // Truncate large files to keep prompt manageable (up to ~15k chars)
-        content = raw.length > 15000
-          ? raw.slice(0, 15000) + '\n// ... (truncated)'
-          : raw;
+        content = raw.length > 15000 ? raw.slice(0, 15000) + '\n// ... (truncated)' : raw;
       } catch {
         content = '// (unable to read file)';
       }
@@ -312,11 +330,14 @@ export class ReviewGenerator {
   private async callLLMWithRetry(prompt: string, maxRetries: number): Promise<{ content: string }> {
     let lastError: Error | null = null;
 
+    const stepOptions = this.llmService.getStepOptions('review');
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         this.logger.debug(`LLM review attempt ${attempt}/${maxRetries}`);
         const response = await this.llmService.complete(prompt, {
-          maxTokens: 8192,
+          ...stepOptions,
+          maxTokens: stepOptions.maxTokens ?? 8192,
         });
         return response;
       } catch (error) {
@@ -330,7 +351,7 @@ export class ReviewGenerator {
     }
 
     throw new VerificationError(
-      `Code review failed after ${maxRetries} attempts: ${lastError?.message}`,
+      `Code review failed after ${maxRetries} attempt${maxRetries > 1 ? 's' : ''}: ${lastError?.message}`,
       { attempts: maxRetries }
     );
   }
@@ -370,7 +391,9 @@ export class ReviewGenerator {
         (trimmed.match(/^[-*]\s/) &&
           !trimmed.match(/^[-*]\s*\[[ x]\]/i) &&
           !trimmed.match(/^[-*]\s*\*+/) &&
-          (trimmed.toLowerCase().includes('category') || trimmed.toLowerCase().includes('file') || trimmed.toLowerCase().includes('severity')))
+          (trimmed.toLowerCase().includes('category') ||
+            trimmed.toLowerCase().includes('file') ||
+            trimmed.toLowerCase().includes('severity')))
       ) {
         if (inBlock && currentBlock.length > 0) {
           blocks.push(currentBlock.join('\n'));
@@ -406,19 +429,23 @@ export class ReviewGenerator {
    * Parse a single finding block into a ReviewComment.
    */
   private parseFindingBlock(block: string): ReviewComment | null {
-    const fileMatch = block.match(/\*\*File:\*\*\s*`([^`]+)`/i) ||
+    const fileMatch =
+      block.match(/\*\*File:\*\*\s*`([^`]+)`/i) ||
       block.match(/File:\s*`([^`]+)`/i) ||
       block.match(/file:\s*(\S+\.\w+)/i);
-    const lineMatch = block.match(/\*\*Line:\*\*\s*(\d+)/i) ||
+    const lineMatch =
+      block.match(/\*\*Line:\*\*\s*(\d+)/i) ||
       block.match(/Line:\s*(\d+)/i) ||
       block.match(/line\s+(\d+)/i);
-    const categoryMatch = block.match(/\*\*Category:\*\*\s*(\w+)/i) ||
-      block.match(/Category:\s*(\w+)/i);
-    const severityMatch = block.match(/\*\*Severity:\*\*\s*(\w+)/i) ||
-      block.match(/Severity:\s*(\w+)/i);
-    const descriptionMatch = block.match(/\*\*Description:\*\*\s*(.+?)(?=\n\*\*|\n\n|$)/is) ||
+    const categoryMatch =
+      block.match(/\*\*Category:\*\*\s*(\w+)/i) || block.match(/Category:\s*(\w+)/i);
+    const severityMatch =
+      block.match(/\*\*Severity:\*\*\s*(\w+)/i) || block.match(/Severity:\s*(\w+)/i);
+    const descriptionMatch =
+      block.match(/\*\*Description:\*\*\s*(.+?)(?=\n\*\*|\n\n|$)/is) ||
       block.match(/Description:\s*(.+?)(?=\n\*|\n\n|$)/is);
-    const suggestionMatch = block.match(/\*\*Suggestion:\*\*\s*(.+?)(?=\n\*\*|\n\n|$)/is) ||
+    const suggestionMatch =
+      block.match(/\*\*Suggestion:\*\*\s*(.+?)(?=\n\*\*|\n\n|$)/is) ||
       block.match(/Suggestion:\s*(.+?)(?=\n\*|\n\n|$)/is);
 
     const description = descriptionMatch?.[1]?.trim();
@@ -492,6 +519,52 @@ export class ReviewGenerator {
   }
 
   /**
+   * Generate a fix prompt for review comments.
+   */
+  generateFixPrompt(review: Review, commentIds?: string[]): string {
+    const comments = commentIds
+      ? review.comments.filter((c) => commentIds.includes(c.id))
+      : review.comments;
+
+    const contextManager = new ContextManager();
+    const projectContext = this.buildProjectContext(this.workingDir, contextManager);
+
+    const promptData: ReviewFixPromptData = {
+      query: review.query,
+      reviewComments: comments,
+      projectContext,
+      agentsMd: null, // Will be populated by template
+    };
+
+    return this.templateEngine.render(
+      'review-fix',
+      promptData as unknown as Record<string, unknown>
+    );
+  }
+
+  /**
+   * Build a project context string.
+   */
+  private buildProjectContext(cwd: string, contextManager: ContextManager): string {
+    const { summary, packageJson } = contextManager.gatherSync(cwd);
+    const parts: string[] = [];
+
+    parts.push(`Working directory: ${cwd}`);
+    const langSummary = Object.entries(summary.languages)
+      .map(([lang, info]) => `${lang} (${info.files} files, ${info.lines} lines)`)
+      .join(', ');
+    if (langSummary) parts.push(`Languages: ${langSummary}`);
+    parts.push(`Total files: ${summary.totalFiles}, Total lines: ${summary.totalLines}`);
+
+    if (packageJson) {
+      if (packageJson.name) parts.push(`Package: ${packageJson.name}`);
+      if (packageJson.description) parts.push(`Description: ${packageJson.description}`);
+    }
+
+    return parts.join('\n');
+  }
+
+  /**
    * Build a review summary from parsed comments.
    */
   private buildSummary(comments: ReviewComment[]): ReviewSummary {
@@ -529,11 +602,19 @@ export class ReviewGenerator {
         if (severityOrder[a.severity] !== severityOrder[b.severity]) {
           return severityOrder[a.severity] - severityOrder[b.severity];
         }
-        const categoryOrder: Record<ReviewCategory, number> = { security: 0, bug: 1, performance: 2, clarity: 3 };
+        const categoryOrder: Record<ReviewCategory, number> = {
+          security: 0,
+          bug: 1,
+          performance: 2,
+          clarity: 3,
+        };
         return categoryOrder[a.category] - categoryOrder[b.category];
       })
       .slice(0, 3)
-      .map((c) => `[${c.severity.toUpperCase()}/${c.category.toUpperCase()}] ${c.file ? `${c.file}: ` : ''}${c.message.slice(0, 100)}`);
+      .map(
+        (c) =>
+          `[${c.severity.toUpperCase()}/${c.category.toUpperCase()}] ${c.file ? `${c.file}: ` : ''}${c.message.slice(0, 100)}`
+      );
 
     return {
       totalComments: comments.length,
