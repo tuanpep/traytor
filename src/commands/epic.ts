@@ -3,7 +3,6 @@ import ora from 'ora';
 import fs from 'node:fs';
 import path from 'node:path';
 import inquirer from 'inquirer';
-import type { TaskService } from '../services/task.service.js';
 import type { EpicService } from '../services/epic.service.js';
 import type { EpicGenerator, ElicitationState } from '../services/epic-generator.js';
 import type { SpecType, TicketStatus } from '../models/epic.js';
@@ -18,7 +17,6 @@ import { getLogger } from '../utils/logger.js';
 import {
   TaskNotFoundError,
   EpicNotFoundError,
-  EpicGenerationError,
 } from '../utils/errors.js';
 
 // ─── Epic Command (main entry) ────────────────────────────────────────────
@@ -34,7 +32,6 @@ export interface EpicCommandOptions {
  * Start an epic with AI elicitation.
  */
 export async function runEpicCommand(
-  taskService: TaskService,
   epicService: EpicService,
   epicGenerator: EpicGenerator,
   query: string,
@@ -268,7 +265,6 @@ export async function runSpecListCommand(
 
 export async function runSpecCreateCommand(
   epicService: EpicService,
-  epicGenerator: EpicGenerator,
   taskId: string,
   specType: SpecType,
   title?: string,
@@ -300,8 +296,8 @@ export async function runSpecCreateCommand(
 
     const spec = await epicService.addSpec(taskId, {
       type: specType,
-      title: finalTitle,
-      content: finalContent,
+      title: finalTitle!,
+      content: finalContent!,
     });
 
     console.log(chalk.green(`Spec created: ${spec.id}`));
@@ -397,7 +393,7 @@ export async function runTicketCreateCommand(
     }
 
     const ticket = await epicService.addTicket(taskId, {
-      title: finalTitle,
+      title: finalTitle!,
       description: finalDescription ?? '',
       acceptanceCriteria,
     });

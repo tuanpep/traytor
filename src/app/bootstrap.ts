@@ -6,7 +6,11 @@ import { PlanGenerator } from '../services/plan-generator.js';
 import { PhaseGenerator } from '../services/phase-generator.js';
 import { ReviewGenerator } from '../services/review-generator.js';
 import { AgentService } from '../services/agent-service.js';
+import { EpicService } from '../services/epic.service.js';
+import { EpicGenerator } from '../services/epic-generator.js';
 import { TemplateEngine } from '../services/template-engine.js';
+import { GitService } from '../services/git-service.js';
+import { WorkflowEngine } from '../services/workflow-engine.js';
 import { LLMService } from '../integrations/llm/llm-service.js';
 import { MCPClient } from '../integrations/mcp/mcp-client.js';
 import { Verifier } from '../core/verifier.js';
@@ -24,6 +28,10 @@ export interface AppContext {
   templateEngine: TemplateEngine;
   agentService: AgentService;
   verifier: Verifier;
+  epicService: EpicService;
+  epicGenerator: EpicGenerator;
+  gitService: GitService;
+  workflowEngine: WorkflowEngine;
 }
 
 export async function bootstrap(workingDir = process.cwd()): Promise<AppContext> {
@@ -44,9 +52,14 @@ export async function bootstrap(workingDir = process.cwd()): Promise<AppContext>
   const reviewGenerator = new ReviewGenerator(llmService, workingDir);
   const agentService = new AgentService(config);
   const verifier = new Verifier(llmService, workingDir);
+  const epicService = new EpicService(taskRepository);
+  const epicGenerator = new EpicGenerator(llmService, templateEngine, workingDir);
+  const gitService = new GitService(workingDir);
+  const workflowEngine = new WorkflowEngine({ dataDir: config.dataDir, gitService });
+  await workflowEngine.initialize();
 
   const taskService = new TaskService(taskRepository, planGenerator);
   taskService.setPhaseGenerator(phaseGenerator);
 
-  return { taskService, configLoader, config, llmService, mcpClient, planGenerator, phaseGenerator, reviewGenerator, templateEngine, agentService, verifier };
+  return { taskService, configLoader, config, llmService, mcpClient, planGenerator, phaseGenerator, reviewGenerator, templateEngine, agentService, verifier, epicService, epicGenerator, gitService, workflowEngine };
 }

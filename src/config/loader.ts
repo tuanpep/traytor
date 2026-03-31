@@ -6,6 +6,7 @@ import { ConfigSchema, type Config } from './schema.js';
 import { DEFAULT_CONFIG } from './defaults.js';
 import { SDDError, ErrorCode } from '../utils/errors.js';
 import { getLogger } from '../utils/logger.js';
+import { SecureStorage } from '../utils/secure-storage.js';
 
 const USER_CONFIG_DIR = '.sdd-tool';
 const USER_CONFIG_FILE = 'config.yaml';
@@ -62,6 +63,40 @@ function applyEnvOverrides(config: Config): Config {
   // Data dir
   if (process.env.SDD_DATA_DIR) {
     result.dataDir = process.env.SDD_DATA_DIR;
+  }
+
+  return result;
+}
+
+async function applySecureStorageOverrides(config: Config): Promise<Config> {
+  const result = { ...config };
+  const logger = getLogger();
+
+  if (!config.security.useKeychain) {
+    return result;
+  }
+
+  try {
+    const secureStorage = new SecureStorage();
+
+    // Only check secure storage if API key is not already set via config or env
+    if (!result.anthropic.apiKey) {
+      const key = await secureStorage.getApiKey('anthropic');
+      if (key) {
+        result.anthropic = { ...result.anthropic, apiKey: key };
+        logger.debug('Anthropic API key retrieved from secure storage');
+      }
+    }
+
+    if (!result.openai.apiKey) {
+      const key = await secureStorage.getApiKey('openai');
+      if (key) {
+        result.openai = { ...result.openai, apiKey: key };
+        logger.debug('OpenAI API key retrieved from secure storage');
+      }
+    }
+  } catch (error) {
+    logger.warn(`Secure storage unavailable, using config/env only: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   return result;
@@ -152,7 +187,10 @@ export class ConfigLoader {
       logger.debug('Applied environment variable overrides');
     }
 
-    // Step 5: Validate with Zod
+    // Step 5: Apply secure storage overrides (API keys from keychain/encrypted file)
+    merged = await applySecureStorageOverrides(merged);
+
+    // Step 6: Validate with Zod
     const parsed = ConfigSchema.safeParse(merged);
     if (!parsed.success) {
       const errors = parsed.error.issues

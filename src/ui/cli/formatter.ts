@@ -391,6 +391,167 @@ export function formatReviewSummary(review: Review): string {
   return lines.join('\n');
 }
 
+// ─── Epic Formatters ──────────────────────────────────────────────────────
+
+const SPEC_TYPE_COLORS: Record<SpecType, typeof chalk.green> = {
+  prd: chalk.blue,
+  tech: chalk.green,
+  design: chalk.magenta,
+  api: chalk.yellow,
+};
+
+const TICKET_STATUS_COLORS: Record<TicketStatus, typeof chalk.green> = {
+  todo: chalk.gray,
+  in_progress: chalk.yellow,
+  done: chalk.green,
+};
+
+const TICKET_STATUS_ICONS: Record<TicketStatus, string> = {
+  todo: 'o',
+  in_progress: '>',
+  done: 'v',
+};
+
+export function formatSpec(spec: Spec): string {
+  const color = SPEC_TYPE_COLORS[spec.type];
+  const lines: string[] = [];
+  lines.push(`${color(`[${spec.type.toUpperCase()}]`)} ${chalk.bold(spec.title)}`);
+  lines.push(chalk.dim(`  ID: ${spec.id}`));
+  lines.push(chalk.dim(`  Created: ${spec.createdAt}`));
+  lines.push(chalk.dim(`  Updated: ${spec.updatedAt}`));
+
+  if (spec.content) {
+    const preview = spec.content.split('\n').slice(0, 5).join('\n');
+    lines.push('');
+    lines.push(chalk.dim(preview));
+    if (spec.content.split('\n').length > 5) {
+      lines.push(chalk.dim('  ...'));
+    }
+  }
+
+  return lines.join('\n');
+}
+
+export function formatSpecList(specs: Spec[]): string {
+  const lines: string[] = [];
+  lines.push(chalk.bold.cyan(`Specs (${specs.length}):`));
+  lines.push('');
+
+  for (const spec of specs) {
+    const color = SPEC_TYPE_COLORS[spec.type];
+    lines.push(`  ${color(`[${spec.type.toUpperCase()}]`)} ${spec.title}`);
+    lines.push(chalk.dim(`    ID: ${spec.id}  |  Updated: ${spec.updatedAt}`));
+    lines.push('');
+  }
+
+  return lines.join('\n');
+}
+
+export function formatTicket(ticket: Ticket): string {
+  const color = TICKET_STATUS_COLORS[ticket.status];
+  const icon = TICKET_STATUS_ICONS[ticket.status];
+
+  const lines: string[] = [];
+  lines.push(`${color(icon)} ${chalk.bold(ticket.title)} ${color(`[${ticket.status}]`)}`);
+  lines.push(chalk.dim(`  ID: ${ticket.id}`));
+
+  if (ticket.description) {
+    const descLines = ticket.description.split('\n').slice(0, 3);
+    for (const line of descLines) {
+      lines.push(chalk.dim(`  ${line}`));
+    }
+    if (ticket.description.split('\n').length > 3) {
+      lines.push(chalk.dim('  ...'));
+    }
+  }
+
+  if (ticket.acceptanceCriteria.length > 0) {
+    lines.push(chalk.blue('  Acceptance Criteria:'));
+    for (const ac of ticket.acceptanceCriteria) {
+      lines.push(chalk.dim(`    - ${ac}`));
+    }
+  }
+
+  if (ticket.linkedSpecs.length > 0) {
+    lines.push(chalk.magenta(`  Linked specs: ${ticket.linkedSpecs.join(', ')}`));
+  }
+
+  if (ticket.assignee) {
+    lines.push(chalk.cyan(`  Assignee: ${ticket.assignee}`));
+  }
+
+  return lines.join('\n');
+}
+
+export function formatTicketList(tickets: Ticket[]): string {
+  const lines: string[] = [];
+
+  lines.push(chalk.bold.cyan(`Tickets (${tickets.length}):`));
+  lines.push('');
+
+  for (const ticket of tickets) {
+    const color = TICKET_STATUS_COLORS[ticket.status];
+    const icon = TICKET_STATUS_ICONS[ticket.status];
+    lines.push(`  ${color(icon)} ${ticket.title} ${color(`[${ticket.status}]`)}`);
+    lines.push(chalk.dim(`    ID: ${ticket.id}`));
+    lines.push('');
+  }
+
+  // Summary
+  const todo = tickets.filter((t) => t.status === 'todo').length;
+  const inProgress = tickets.filter((t) => t.status === 'in_progress').length;
+  const done = tickets.filter((t) => t.status === 'done').length;
+
+  lines.push(chalk.dim(`Progress: ${done}/${tickets.length} done, ${inProgress} in progress, ${todo} todo`));
+
+  return lines.join('\n');
+}
+
+export function formatEpic(epic: Epic): string {
+  const lines: string[] = [];
+
+  lines.push(chalk.bold.cyan(`Epic: ${epic.id}`));
+  lines.push('');
+
+  // Workflow
+  if (epic.workflow) {
+    lines.push(chalk.bold('Workflow:'));
+    lines.push(chalk.dim(`  ${epic.workflow.name} (${epic.workflow.steps.length} steps)`));
+    for (const step of epic.workflow.steps) {
+      lines.push(chalk.dim(`    ${step.order}. ${step.name}: ${step.description}`));
+    }
+    lines.push('');
+  }
+
+  // Specs summary
+  if (epic.specs.length > 0) {
+    lines.push(chalk.bold(`Specs (${epic.specs.length}):`));
+    for (const spec of epic.specs) {
+      const color = SPEC_TYPE_COLORS[spec.type];
+      lines.push(`  ${color(`[${spec.type.toUpperCase()}]`)} ${spec.title}`);
+    }
+    lines.push('');
+  }
+
+  // Tickets summary
+  if (epic.tickets.length > 0) {
+    lines.push(chalk.bold(`Tickets (${epic.tickets.length}):`));
+    for (const ticket of epic.tickets) {
+      const color = TICKET_STATUS_COLORS[ticket.status];
+      const icon = TICKET_STATUS_ICONS[ticket.status];
+      lines.push(`  ${color(icon)} ${ticket.title} ${color(`[${ticket.status}]`)}`);
+    }
+    lines.push('');
+
+    const todo = epic.tickets.filter((t) => t.status === 'todo').length;
+    const inProgress = epic.tickets.filter((t) => t.status === 'in_progress').length;
+    const done = epic.tickets.filter((t) => t.status === 'done').length;
+    lines.push(chalk.dim(`Progress: ${done}/${epic.tickets.length} done, ${inProgress} in progress, ${todo} todo`));
+  }
+
+  return lines.join('\n');
+}
+
 export function formatReviewMarkdown(review: Review): string {
   const lines: string[] = [];
 

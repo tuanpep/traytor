@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import ora from 'ora';
 import { getLogger } from '../utils/logger.js';
 import { FileAnalyzer, type Codebase } from './file-analyzer.js';
 import { LLMService } from '../integrations/llm/llm-service.js';
@@ -12,6 +13,7 @@ import type {
   VerificationCategory,
 } from '../models/verification.js';
 import { createVerificationId, createVerificationCommentId } from '../models/verification.js';
+import type { StreamCallback } from '../integrations/llm/types.js';
 
 // ─── Verification Options ───────────────────────────────────────────────────
 
@@ -88,6 +90,62 @@ export class Verifier {
     const comments = this.parseVerificationResponse(llmResponse.content);
 
     // 6. Build summary
+    const summary = this.buildSummary(comments, fileComparison);
+
+    return {
+      id: createVerificationId(),
+      taskId: task.id,
+      timestamp: new Date().toISOString(),
+      comments,
+      summary,
+    };
+  }
+
+  /**
+   * Verify with streaming output for real-time feedback.
+   */
+  async verifyStream(
+    task: Task,
+    options: VerificationOptions & { onChunk?: StreamCallback } = {}
+  ): Promise<Verification> {
+    if (!task.plan) {
+      throw new VerificationError(
+        `Task "${task.id}" has no plan to verify against`,
+        { taskId: task.id }
+      );
+    }
+
+    this.logger.info(`Streaming verification for task ${task.id}`);
+
+    const spinner = ora('Analyzing codebase...').start();
+    const codebase = await this.analyzeCodebase();
+
+    spinner.text = 'Comparing implementation against plan...';
+    const fileComparison = this.compareFiles(task.plan, codebase);
+    const codeChanges = this.gatherCodeChanges(task.plan, codebase);
+
+    const verificationData: VerificationPromptData = {
+      planId: task.plan.id,
+      query: task.query,
+      steps: task.plan.steps.map((step) => ({
+        title: step.title,
+        description: step.description,
+        files: step.files,
+      })),
+      codeChanges,
+    };
+
+    const prompt = this.templateEngine.renderVerificationTemplate(verificationData);
+
+    spinner.text = 'Running LLM verification (streaming)...';
+
+    const maxRetries = options.maxRetries ?? 3;
+    const llmResponse = await this.callLLMStreamWithRetry(prompt, maxRetries, options.onChunk);
+
+    spinner.succeed(`Verification complete (${llmResponse.usage.inputTokens + llmResponse.usage.outputTokens} tokens)`);
+    process.stdout.write('\n');
+
+    const comments = this.parseVerificationResponse(llmResponse.content);
     const summary = this.buildSummary(comments, fileComparison);
 
     return {
@@ -204,7 +262,6 @@ export class Verifier {
         this.logger.warn(`LLM verification attempt ${attempt} failed: ${lastError.message}`);
 
         if (attempt < maxRetries) {
-          // Wait briefly before retrying
           await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
         }
       }
@@ -212,6 +269,40 @@ export class Verifier {
 
     throw new VerificationError(
       `LLM verification failed after ${maxRetries} attempts: ${lastError?.message}`,
+      { attempts: maxRetries }
+    );
+  }
+
+  /**
+   * Call LLM with streaming and retry logic.
+   */
+  private async callLLMStreamWithRetry(
+    prompt: string,
+    maxRetries: number,
+    onChunk?: StreamCallback
+  ): Promise<{ content: string; usage: { inputTokens: number; outputTokens: number } }> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        this.logger.debug(`LLM streaming verification attempt ${attempt}/${maxRetries}`);
+        const response = await this.llmService.stream(prompt, {
+          maxTokens: 4096,
+          onChunk: onChunk ?? (() => {}),
+        });
+        return response;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        this.logger.warn(`LLM streaming verification attempt ${attempt} failed: ${lastError.message}`);
+
+        if (attempt < maxRetries) {
+          await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+        }
+      }
+    }
+
+    throw new VerificationError(
+      `LLM streaming verification failed after ${maxRetries} attempts: ${lastError?.message}`,
       { attempts: maxRetries }
     );
   }

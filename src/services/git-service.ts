@@ -302,17 +302,30 @@ export class GitService {
     if (lines.length === 0) return null;
 
     // Extract file paths from the first line: a/path b/path
-    const headerMatch = lines[0].match(/^a\/(.+?)\s+b\/(.+)$/);
+    const headerMatch = lines[0].match(/^a\/(.+)\s+b\/(.+)$/);
     if (!headerMatch) return null;
 
     const oldFile = headerMatch[1];
     const newFile = headerMatch[2];
 
-    // Determine file type
+    // Determine file type by checking --- and +++ lines for /dev/null
     let type: GitDiffFileType = 'modified';
-    if (oldFile === '/dev/null') {
+    let oldFilePath = oldFile;
+    let newFilePath = newFile;
+
+    for (const line of lines) {
+      if (line.startsWith('--- ')) {
+        const match = line.match(/^--- (?:a\/)?(.+)$/);
+        if (match) oldFilePath = match[1];
+      } else if (line.startsWith('+++ ')) {
+        const match = line.match(/^\+\+\+ (?:b\/)?(.+)$/);
+        if (match) newFilePath = match[1];
+      }
+    }
+
+    if (oldFilePath === '/dev/null') {
       type = 'added';
-    } else if (newFile === '/dev/null') {
+    } else if (newFilePath === '/dev/null') {
       type = 'deleted';
     } else if (oldFile !== newFile) {
       type = 'renamed';
@@ -333,11 +346,11 @@ export class GitService {
       }
     }
 
-    const filePath = type === 'deleted' ? oldFile : newFile;
+    const filePath = type === 'deleted' ? oldFilePath : newFilePath;
 
     return {
       file: filePath,
-      oldFile: type === 'renamed' ? oldFile : undefined,
+      oldFile: type === 'renamed' ? oldFilePath : undefined,
       type,
       additions,
       deletions,

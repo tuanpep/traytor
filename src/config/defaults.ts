@@ -25,4 +25,22 @@ export const DEFAULT_CONFIG: Config = {
     autoVerify: false,
     maxRetries: 3,
   },
+  git: {
+    autoCommit: {
+      enabled: false,
+      messageTemplate: 'sdd: {taskId} - step {step} completed',
+    },
+  },
+  workflow: {
+    default: 'default',
+  },
+  cache: {
+    ttlMs: 5 * 60 * 1000,
+    maxEntries: 500,
+    persist: true,
+  },
+  security: {
+    useKeychain: true,
+    keychainService: 'com.traytor.sdd',
+  },
 };

@@ -3,6 +3,7 @@ import { SDDError, ErrorCode, LLMProviderError } from '../../utils/errors.js';
 import { getLogger } from '../../utils/logger.js';
 import { AnthropicProvider } from './anthropic-provider.js';
 import { OpenAIProvider } from './openai-provider.js';
+import { withRetry } from './retry.js';
 import type { LLMOptions, LLMProvider, LLMResponse, StreamCallback } from './types.js';
 
 /**
@@ -154,7 +155,7 @@ export class LLMService {
   async complete(prompt: string, options?: LLMOptions & { provider?: string; profile?: string }): Promise<LLMResponse> {
     const { provider: providerName, llmOptions } = this.resolveOptions(options);
     const provider = this.getProvider(providerName);
-    return provider.complete(prompt, llmOptions);
+    return withRetry(() => provider.complete(prompt, llmOptions));
   }
 
   async stream(
@@ -164,6 +165,6 @@ export class LLMService {
     const { onChunk, profile, provider, ...restOptions } = options;
     const { provider: providerName, llmOptions } = this.resolveOptions({ ...restOptions, profile, provider });
     const providerInstance = this.getProvider(providerName);
-    return providerInstance.stream(prompt, { ...llmOptions, onChunk });
+    return withRetry(() => providerInstance.stream(prompt, { ...llmOptions, onChunk }));
   }
 }

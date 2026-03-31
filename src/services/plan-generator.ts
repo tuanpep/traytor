@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import ora from 'ora';
 import { getLogger } from '../utils/logger.js';
 import { FileAnalyzer } from '../core/file-analyzer.js';
 import { ContextManager } from '../core/context-manager.js';
@@ -6,6 +7,7 @@ import { LLMService } from '../integrations/llm/llm-service.js';
 import type { Plan, PlanStep } from '../models/plan.js';
 import { createPlanId, createPlanStepId } from '../models/plan.js';
 import { TemplateEngine } from './template-engine.js';
+import type { StreamCallback } from '../integrations/llm/types.js';
 
 // ─── Plan Prompt Data ──────────────────────────────────────────────────────
 
@@ -76,6 +78,59 @@ export class PlanGenerator {
     // 6. Parse response into Plan
     const plan = this.parsePlanResponse(response.content, query);
 
+    return plan;
+  }
+
+  /**
+   * Stream a plan generation with real-time output.
+   */
+  async generateStream(
+    query: string,
+    specificFiles: string[] | undefined,
+    onChunk?: StreamCallback
+  ): Promise<Plan> {
+    this.logger.info(`Streaming plan generation for: ${query}`);
+
+    const spinner = ora('Gathering project context...').start();
+
+    const contextManager = new ContextManager();
+    const context = await contextManager.gatherWithCodebase(this.workingDir);
+
+    const analyzer = new FileAnalyzer(this.workingDir);
+    let relevantFiles;
+
+    if (specificFiles && specificFiles.length > 0) {
+      const allFiles = context.codebase.files;
+      relevantFiles = allFiles.filter((f) =>
+        specificFiles.some((sf) => f.relativePath.includes(sf) || f.path.includes(sf))
+      );
+    } else {
+      relevantFiles = analyzer.findRelevantFiles(context.codebase, query);
+    }
+
+    spinner.text = `Analyzing ${relevantFiles.length} relevant files...`;
+
+    const promptData = this.buildPromptData(query, context, relevantFiles);
+    const prompt = this.templateEngine.renderPlanTemplate(promptData);
+
+    spinner.text = 'Generating plan via LLM (streaming)...';
+
+    let fullContent = '';
+    const response = await this.llmService.stream(prompt, {
+      maxTokens: 4096,
+      onChunk: (chunk: string) => {
+        fullContent += chunk;
+        if (onChunk) {
+          onChunk(chunk);
+        }
+        spinner.text = `Generating plan... (${fullContent.length} chars received)`;
+      },
+    });
+
+    spinner.succeed(`Plan generated (${response.usage.inputTokens + response.usage.outputTokens} tokens)`);
+    process.stdout.write('\n');
+
+    const plan = this.parsePlanResponse(response.content, query);
     return plan;
   }
 

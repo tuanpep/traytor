@@ -1,0 +1,86 @@
+{
+  "name": "sdd-vscode",
+  "displayName": "SDD - Spec Driven Development",
+  "description": "IDE integration for the SDD spec-driven development CLI tool",
+  "version": "0.1.0",
+  "publisher": "traytor",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Developer Tools"
+  ],
+  "activationEvents": [
+    "onCommand:sdd.createPlan",
+    "onCommand:sdd.executeTask",
+    "onCommand:sdd.verifyTask",
+    "onCommand:sdd.showHistory",
+    "onCommand:sdd.refreshTasks"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "sdd.createPlan",
+        "title": "SDD: Create Plan",
+        "category": "SDD"
+      },
+      {
+        "command": "sdd.executeTask",
+        "title": "SDD: Execute Task",
+        "category": "SDD"
+      },
+      {
+        "command": "sdd.verifyTask",
+        "title": "SDD: Verify Task",
+        "category": "SDD"
+      },
+      {
+        "command": "sdd.showHistory",
+        "title": "SDD: Show Task History",
+        "category": "SDD"
+      },
+      {
+        "command": "sdd.refreshTasks",
+        "title": "SDD: Refresh Task List",
+        "category": "SDD",
+        "icon": "$(refresh)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "sdd-sidebar",
+          "title": "SDD Tasks",
+          "icon": "$(checklist)"
+        }
+      ]
+    },
+    "views": {
+      "sdd-sidebar": [
+        {
+          "id": "sddTasksView",
+          "name": "Task List",
+          "icon": "$(checklist)"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "sddTasksView",
+        "contents": "No tasks found.\n[SDD: Create Plan](command:sdd.createPlan)"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -watch",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0"
+  }
+}

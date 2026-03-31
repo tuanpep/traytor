@@ -51,6 +51,17 @@ const WorkflowConfigSchema = z.object({
   default: z.string().default('default'),
 });
 
+const CacheConfigSchema = z.object({
+  ttlMs: z.number().default(5 * 60 * 1000),
+  maxEntries: z.number().default(500),
+  persist: z.boolean().default(true),
+});
+
+const SecurityConfigSchema = z.object({
+  useKeychain: z.boolean().default(true),
+  keychainService: z.string().default('com.traytor.sdd'),
+});
+
 const MCPServerConfigSchema = z.object({
   name: z.string(),
   url: z.string(),
@@ -90,6 +101,10 @@ export const ConfigSchema = z.object({
   dataDir: z.string().default('~/.sdd-tool/data'),
   logLevel: z.enum(['debug', 'info', 'warn', 'error', 'silent']).default('info'),
   verification: VerificationConfigSchema.default({ autoVerify: false, maxRetries: 3 }),
+  git: GitConfigSchema.default({ autoCommit: { enabled: false, messageTemplate: 'sdd: {taskId} - step {step} completed' } }),
+  workflow: WorkflowConfigSchema.default({ default: 'default' }),
+  cache: CacheConfigSchema.default({ ttlMs: 5 * 60 * 1000, maxEntries: 500, persist: true }),
+  security: SecurityConfigSchema.default({ useKeychain: true, keychainService: 'com.traytor.sdd' }),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

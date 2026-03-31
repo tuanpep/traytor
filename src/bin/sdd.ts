@@ -11,6 +11,30 @@ import { runPhasesCommand } from '../commands/phases.js';
 import { runReviewCommand } from '../commands/review.js';
 import { runAgentList, runAgentAdd, runAgentRemove, runAgentSetDefault } from '../commands/agent.js';
 import { runTemplateList, runTemplateShow, runTemplateCreate, runTemplateEdit } from '../commands/template.js';
+import {
+  runWorkflowList,
+  runWorkflowShow,
+  runWorkflowCreate,
+  runWorkflowState,
+  runWorkflowAdvance,
+  runWorkflowPause,
+  runWorkflowResume,
+  runGitStatus,
+  runGitDiff,
+  runGitCommit,
+} from '../commands/workflow.js';
+import {
+  runEpicCommand,
+  runSpecListCommand,
+  runSpecCreateCommand,
+  runSpecEditCommand,
+  runTicketListCommand,
+  runTicketCreateCommand,
+  runTicketStatusCommand,
+  runTicketEditCommand,
+} from '../commands/epic.js';
+import { runHelpCommand } from '../commands/help.js';
+import { runTUICommand } from '../commands/tui.js';
 
 const program = new Command();
 
@@ -319,6 +343,348 @@ program
         default:
           console.error(chalk.red(`Unknown subcommand: ${subcommand}`));
           console.log(chalk.dim('Available subcommands: list, show, create, edit'));
+          process.exit(1);
+      }
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+// ─── Epic Command ──────────────────────────────────────────────────────────
+
+program
+  .command('epic')
+  .description('Start an epic with AI elicitation, or manage specs/tickets')
+  .argument('[query]', 'Epic description (omit to manage existing epic)')
+  .option('--task-id <id>', 'Task ID of an existing epic (for spec/ticket management)')
+  .option('--spec <subcommand>', 'Spec subcommand: list, create, edit')
+  .option('--spec-id <id>', 'Spec ID (for edit)')
+  .option('--spec-type <type>', 'Spec type: prd, tech, design, api')
+  .option('--spec-title <title>', 'Spec title (for create/edit)')
+  .option('--ticket <subcommand>', 'Ticket subcommand: list, create, edit, status')
+  .option('--ticket-id <id>', 'Ticket ID (for edit/status)')
+  .option('--ticket-title <title>', 'Ticket title (for create/edit)')
+  .option('--ticket-description <desc>', 'Ticket description (for create/edit)')
+  .option('--ticket-status <status>', 'New ticket status: todo, in_progress, done')
+  .option('--max-rounds <n>', 'Max elicitation rounds', parseInt)
+  .option('--auto', 'Skip interactive elicitation, use defaults')
+  .option('-o, --output <format>', 'Output format: terminal, markdown, json', 'terminal')
+  .option('--output-file <path>', 'Write output to a file (for markdown/json)')
+  .option('-v, --verbose', 'Show verbose output')
+  .action(async (query: string | undefined, opts) => {
+    try {
+      const ctx = await getContext();
+      const logLevel = opts.verbose ? 'debug' : ctx.config.logLevel;
+      initLogger({ level: logLevel });
+
+      const taskId = opts.taskId;
+
+      // Spec sub-commands
+      if (opts.spec) {
+        if (!taskId) {
+          console.error(chalk.red('--task-id is required for spec operations'));
+          process.exit(1);
+        }
+        switch (opts.spec) {
+          case 'list':
+            await runSpecListCommand(ctx.epicService, taskId);
+            break;
+          case 'create':
+            await runSpecCreateCommand(
+              ctx.epicService,
+              taskId,
+              (opts.specType as 'prd' | 'tech' | 'design' | 'api') ?? 'prd',
+              opts.specTitle,
+              opts.specTitle ? '# ' + opts.specTitle + '\n\n' : undefined
+            );
+            break;
+          case 'edit':
+            if (!opts.specId) {
+              console.error(chalk.red('--spec-id is required for edit'));
+              process.exit(1);
+            }
+            await runSpecEditCommand(ctx.epicService, taskId, opts.specId, {
+              title: opts.specTitle,
+            });
+            break;
+          default:
+            console.error(chalk.red(`Unknown spec subcommand: ${opts.spec}`));
+            console.log(chalk.dim('Available: list, create, edit'));
+            process.exit(1);
+        }
+        return;
+      }
+
+      // Ticket sub-commands
+      if (opts.ticket) {
+        if (!taskId) {
+          console.error(chalk.red('--task-id is required for ticket operations'));
+          process.exit(1);
+        }
+        switch (opts.ticket) {
+          case 'list':
+            await runTicketListCommand(ctx.epicService, taskId);
+            break;
+          case 'create':
+            await runTicketCreateCommand(
+              ctx.epicService,
+              taskId,
+              opts.ticketTitle,
+              opts.ticketDescription
+            );
+            break;
+          case 'edit':
+            if (!opts.ticketId) {
+              console.error(chalk.red('--ticket-id is required for edit'));
+              process.exit(1);
+            }
+            await runTicketEditCommand(ctx.epicService, taskId, opts.ticketId, {
+              title: opts.ticketTitle,
+              description: opts.ticketDescription,
+            });
+            break;
+          case 'status':
+            if (!opts.ticketId || !opts.ticketStatus) {
+              console.error(chalk.red('--ticket-id and --ticket-status are required'));
+              process.exit(1);
+            }
+            await runTicketStatusCommand(ctx.epicService, taskId, opts.ticketId, opts.ticketStatus);
+            break;
+          default:
+            console.error(chalk.red(`Unknown ticket subcommand: ${opts.ticket}`));
+            console.log(chalk.dim('Available: list, create, edit, status'));
+            process.exit(1);
+        }
+        return;
+      }
+
+      // Main epic creation
+      if (!query) {
+        console.error(chalk.red('A query is required to start a new epic'));
+        console.log(chalk.dim('Usage: sdd epic "Build auth system"'));
+        console.log(chalk.dim('       sdd epic --task-id <id> --spec list'));
+        console.log(chalk.dim('       sdd epic --task-id <id> --ticket list'));
+        process.exit(1);
+      }
+
+      await runEpicCommand(ctx.epicService, ctx.epicGenerator, query, {
+        maxRounds: opts.maxRounds,
+        auto: opts.auto,
+        output: opts.output,
+        outputFile: opts.outputFile,
+      });
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+// ─── Workflow Command ──────────────────────────────────────────────────────
+
+program
+  .command('workflow')
+  .description('Manage workflows and workflow state')
+  .argument('<subcommand>', 'Subcommand: list, show, create, state, advance, pause, resume')
+  .argument('[nameOrId]', 'Workflow name (for show, create) or workflow ID (for state, advance, pause, resume)')
+  .option('--description <desc>', 'Workflow description (for create)')
+  .option('--steps <steps>', 'Comma-separated step names (for create)')
+  .option('-v, --verbose', 'Show verbose output')
+  .action(async (subcommand: string, nameOrId: string | undefined, opts) => {
+    try {
+      const ctx = await getContext();
+      const logLevel = opts.verbose ? 'debug' : ctx.config.logLevel;
+      initLogger({ level: logLevel });
+
+      const wfCtx = {
+        workflowEngine: ctx.workflowEngine,
+        gitService: ctx.gitService,
+      };
+
+      switch (subcommand) {
+        case 'list':
+          await runWorkflowList(wfCtx);
+          break;
+        case 'show': {
+          if (!nameOrId) {
+            console.error(chalk.red('Workflow name is required for show.'));
+            process.exit(1);
+          }
+          await runWorkflowShow(wfCtx, nameOrId);
+          break;
+        }
+        case 'create': {
+          if (!nameOrId) {
+            console.error(chalk.red('Workflow name is required for create.'));
+            process.exit(1);
+          }
+          await runWorkflowCreate(wfCtx, nameOrId, {
+            description: opts.description,
+            steps: opts.steps,
+          });
+          break;
+        }
+        case 'state': {
+          if (!nameOrId) {
+            console.error(chalk.red('Workflow ID is required for state.'));
+            process.exit(1);
+          }
+          await runWorkflowState(wfCtx, nameOrId);
+          break;
+        }
+        case 'advance': {
+          if (!nameOrId) {
+            console.error(chalk.red('Workflow ID is required for advance.'));
+            process.exit(1);
+          }
+          await runWorkflowAdvance(wfCtx, nameOrId);
+          break;
+        }
+        case 'pause': {
+          if (!nameOrId) {
+            console.error(chalk.red('Workflow ID is required for pause.'));
+            process.exit(1);
+          }
+          await runWorkflowPause(wfCtx, nameOrId);
+          break;
+        }
+        case 'resume': {
+          if (!nameOrId) {
+            console.error(chalk.red('Workflow ID is required for resume.'));
+            process.exit(1);
+          }
+          await runWorkflowResume(wfCtx, nameOrId);
+          break;
+        }
+        default:
+          console.error(chalk.red(`Unknown subcommand: ${subcommand}`));
+          console.log(chalk.dim('Available subcommands: list, show, create, state, advance, pause, resume'));
+          process.exit(1);
+      }
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+// ─── Git Command ──────────────────────────────────────────────────────────
+
+program
+  .command('git')
+  .description('Git operations (status, diff, commit)')
+  .argument('<subcommand>', 'Subcommand: status, diff, commit')
+  .argument('[arg]', 'Git ref for diff, or commit message for commit')
+  .option('--files <files...>', 'Files to commit')
+  .option('-v, --verbose', 'Show verbose output')
+  .action(async (subcommand: string, arg: string | undefined, opts) => {
+    try {
+      const ctx = await getContext();
+      const logLevel = opts.verbose ? 'debug' : ctx.config.logLevel;
+      initLogger({ level: logLevel });
+
+      const wfCtx = {
+        workflowEngine: ctx.workflowEngine,
+        gitService: ctx.gitService,
+      };
+
+      switch (subcommand) {
+        case 'status':
+          await runGitStatus(wfCtx);
+          break;
+        case 'diff':
+          await runGitDiff(wfCtx, arg);
+          break;
+        case 'commit': {
+          if (!arg) {
+            console.error(chalk.red('Commit message is required.'));
+            process.exit(1);
+          }
+          await runGitCommit(wfCtx, arg, opts.files);
+          break;
+        }
+        default:
+          console.error(chalk.red(`Unknown subcommand: ${subcommand}`));
+          console.log(chalk.dim('Available subcommands: status, diff, commit'));
+          process.exit(1);
+      }
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+// ─── TUI Command ───────────────────────────────────────────────────────────
+
+program
+  .command('tui')
+  .description('Open interactive Terminal UI dashboard')
+  .action(async () => {
+    try {
+      const ctx = await getContext();
+      initLogger({ level: ctx.config.logLevel });
+
+      await runTUICommand(ctx.taskService);
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+// ─── Help Command ──────────────────────────────────────────────────────────
+
+program
+  .command('help')
+  .description('Show detailed help for a command')
+  .argument('[command]', 'Command to show help for')
+  .action(async (command?: string) => {
+    runHelpCommand(command);
+  });
+
+// ─── Config Command ────────────────────────────────────────────────────────
+
+program
+  .command('config')
+  .description('Manage configuration and API keys')
+  .argument('<subcommand>', 'Subcommand: show, set-key, get-key, remove-key')
+  .argument('[provider]', 'Provider name (for key subcommands): anthropic, openai')
+  .argument('[apiKey]', 'API key value (for set-key)')
+  .action(async (subcommand: string, provider: string | undefined, apiKey: string | undefined) => {
+    try {
+      initLogger({ level: 'info' });
+
+      const { runConfigCommand, runConfigSetKey, runConfigGetKey, runConfigRemoveKey } = await import('../commands/config.js');
+
+      switch (subcommand) {
+        case 'show': {
+          const ctx = await getContext();
+          runConfigCommand(ctx.config);
+          break;
+        }
+        case 'set-key': {
+          if (!provider || !apiKey) {
+            console.error(chalk.red('Provider and API key are required for set-key.'));
+            console.log(chalk.dim('Usage: sdd config set-key <provider> <api-key>'));
+            process.exit(1);
+          }
+          await runConfigSetKey(provider, apiKey);
+          break;
+        }
+        case 'get-key': {
+          if (!provider) {
+            console.error(chalk.red('Provider is required for get-key.'));
+            console.log(chalk.dim('Usage: sdd config get-key <provider>'));
+            process.exit(1);
+          }
+          await runConfigGetKey(provider);
+          break;
+        }
+        case 'remove-key': {
+          if (!provider) {
+            console.error(chalk.red('Provider is required for remove-key.'));
+            console.log(chalk.dim('Usage: sdd config remove-key <provider>'));
+            process.exit(1);
+          }
+          await runConfigRemoveKey(provider);
+          break;
+        }
+        default:
+          console.error(chalk.red(`Unknown subcommand: ${subcommand}`));
+          console.log(chalk.dim('Available subcommands: show, set-key, get-key, remove-key'));
           process.exit(1);
       }
     } catch (err) {
