@@ -47,7 +47,13 @@ export function renderPlanViewer(plan: Plan, state: PlanViewerState): string {
     lines.push('');
 
     if (step.description) {
-      lines.push('  ' + step.description.split('\n').map((l) => l).join('\n  '));
+      lines.push(
+        '  ' +
+          step.description
+            .split('\n')
+            .map((l) => l)
+            .join('\n  ')
+      );
       lines.push('');
     }
 
@@ -100,7 +106,10 @@ export function renderPlanViewer(plan: Plan, state: PlanViewerState): string {
   return lines.join('\n');
 }
 
-export async function promptPlanStepNavigation(plan: Plan, currentStep: number): Promise<{
+export async function promptPlanStepNavigation(
+  plan: Plan,
+  currentStep: number
+): Promise<{
   action: 'next' | 'prev' | 'toggle-code' | 'goto' | 'back';
   step?: number;
 }> {
@@ -117,23 +126,28 @@ export async function promptPlanStepNavigation(plan: Plan, currentStep: number):
   choices.push({ name: 'Toggle code view', value: 'toggle-code' });
   choices.push({ name: chalk.gray('Back'), value: 'back' });
 
-  const { action } = await inquirer.prompt([{
-    type: 'select',
-    name: 'action',
-    message: `Step ${currentStep + 1}/${plan.steps.length}:`,
-    choices,
-  }]);
+  const { action } = await inquirer.prompt([
+    {
+      type: 'select',
+      name: 'action',
+      message: `Step ${currentStep + 1}/${plan.steps.length}:`,
+      choices,
+    },
+  ]);
 
   if (action === 'goto') {
-    const { stepNum } = await inquirer.prompt([{
-      type: 'number',
-      name: 'stepNum',
-      message: 'Go to step number:',
-      default: currentStep + 1,
-      validate: (val: number) => val >= 1 && val <= plan.steps.length
-        ? true
-        : `Please enter a number between 1 and ${plan.steps.length}`,
-    }]);
+    const { stepNum } = await inquirer.prompt([
+      {
+        type: 'number',
+        name: 'stepNum',
+        message: 'Go to step number:',
+        default: currentStep + 1,
+        validate: (val: number) =>
+          val >= 1 && val <= plan.steps.length
+            ? true
+            : `Please enter a number between 1 and ${plan.steps.length}`,
+      },
+    ]);
     return { action: 'goto', step: stepNum - 1 };
   }
 

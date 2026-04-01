@@ -78,7 +78,9 @@ export class SecureStorage {
         logger.debug(`API key for ${provider} stored in macOS Keychain`);
         return;
       } catch (error) {
-        logger.warn(`macOS Keychain unavailable, falling back to encrypted file: ${error instanceof Error ? error.message : String(error)}`);
+        logger.warn(
+          `macOS Keychain unavailable, falling back to encrypted file: ${error instanceof Error ? error.message : String(error)}`
+        );
       }
     } else if (isLinux()) {
       try {
@@ -100,7 +102,9 @@ export class SecureStorage {
         logger.debug(`API key for ${provider} stored in Windows Credential Manager`);
         return;
       } catch (error) {
-        logger.warn(`Windows Credential Manager unavailable, falling back to encrypted file: ${error instanceof Error ? error.message : String(error)}`);
+        logger.warn(
+          `Windows Credential Manager unavailable, falling back to encrypted file: ${error instanceof Error ? error.message : String(error)}`
+        );
       }
     }
 
@@ -126,10 +130,10 @@ export class SecureStorage {
       }
     } else if (isLinux()) {
       try {
-        const result = execSync(
-          `secret-tool lookup "${this.serviceName}" "${provider}"`,
-          { stdio: 'pipe', encoding: 'utf-8' }
-        ).trim();
+        const result = execSync(`secret-tool lookup "${this.serviceName}" "${provider}"`, {
+          stdio: 'pipe',
+          encoding: 'utf-8',
+        }).trim();
         if (result) {
           logger.debug(`API key for ${provider} retrieved from system keyring`);
           return result;
@@ -156,10 +160,9 @@ export class SecureStorage {
 
     if (isMac()) {
       try {
-        execSync(
-          `security delete-generic-password -s "${this.serviceName}" -a "${provider}"`,
-          { stdio: 'pipe' }
-        );
+        execSync(`security delete-generic-password -s "${this.serviceName}" -a "${provider}"`, {
+          stdio: 'pipe',
+        });
         logger.debug(`API key for ${provider} deleted from macOS Keychain`);
       } catch {
         // May not exist in keychain, try file
@@ -207,7 +210,9 @@ export class SecureStorage {
       return decrypt(encrypted, machineKey);
     } catch (error) {
       const logger = getLogger();
-      logger.warn(`Failed to decrypt API key for ${provider}: ${error instanceof Error ? error.message : String(error)}`);
+      logger.warn(
+        `Failed to decrypt API key for ${provider}: ${error instanceof Error ? error.message : String(error)}`
+      );
       return null;
     }
   }

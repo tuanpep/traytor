@@ -1,36 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  createTaskId,
-} from '../src/models/task.js';
-import {
-  createPlanId,
-  createPlanStepId,
-} from '../src/models/plan.js';
+import { createTaskId } from '../src/models/task.js';
+import { createPlanId, createPlanStepId } from '../src/models/plan.js';
 import {
   createEpicId,
   createSpecId,
   createTicketId,
   createWorkflowStepId,
 } from '../src/models/epic.js';
-import {
-  createPhaseId,
-} from '../src/models/phase.js';
-import {
-  createExecutionId,
-} from '../src/models/execution.js';
-import {
-  createVerificationId,
-  createVerificationCommentId,
-} from '../src/models/verification.js';
-import {
-  createReviewId,
-  createReviewCommentId,
-} from '../src/models/review.js';
-import {
-  createWorkflowId,
-  createWorkflowStepDefId,
-} from '../src/models/workflow.js';
+import { createPhaseId } from '../src/models/phase.js';
+import { createExecutionId } from '../src/models/execution.js';
+import { createVerificationId, createVerificationCommentId } from '../src/models/verification.js';
+import { createReviewId, createReviewCommentId } from '../src/models/review.js';
+import { createWorkflowId, createWorkflowStepDefId } from '../src/models/workflow.js';
 import {
   TraytorError,
   ErrorCode,
@@ -83,12 +65,9 @@ describe('smoke test', () => {
   });
 
   it('TraytorError base class works correctly', () => {
-    const err = new TraytorError(
-      ErrorCode.TASK_NOT_FOUND,
-      'test message',
-      'test suggestion',
-      { key: 'value' }
-    );
+    const err = new TraytorError(ErrorCode.TASK_NOT_FOUND, 'test message', 'test suggestion', {
+      key: 'value',
+    });
     expect(err).toBeInstanceOf(Error);
     expect(err).toBeInstanceOf(TraytorError);
     expect(err.code).toBe(ErrorCode.TASK_NOT_FOUND);

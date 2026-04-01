@@ -44,11 +44,7 @@ export {
   createReviewCommentId,
 } from './review.js';
 
-export {
-  type Execution,
-  type ExecutionHistoryEntry,
-  createExecutionId,
-} from './execution.js';
+export { type Execution, type ExecutionHistoryEntry, createExecutionId } from './execution.js';
 
 export {
   type Workflow,
@@ -64,10 +60,7 @@ export {
   createWorkflowStepId,
 } from './epic.js';
 
-export {
-  type SymbolReference,
-  createSymbolReferenceId,
-} from './symbol-reference.js';
+export { type SymbolReference, createSymbolReferenceId } from './symbol-reference.js';
 
 export {
   type GitDiff,

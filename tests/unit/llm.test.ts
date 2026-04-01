@@ -121,10 +121,15 @@ describe('AnthropicProvider', () => {
     });
 
     it('wraps APIError in LLMProviderError with status and retry info', async () => {
-      const apiError = new Anthropic.APIError(429, {
-        type: 'rate_limit_error',
-        message: 'Rate limited',
-      } as unknown as Anthropic.APIError['error'], 'Rate limited', new Headers());
+      const apiError = new Anthropic.APIError(
+        429,
+        {
+          type: 'rate_limit_error',
+          message: 'Rate limited',
+        } as unknown as Anthropic.APIError['error'],
+        'Rate limited',
+        new Headers()
+      );
 
       mockCreate.mockRejectedValue(apiError);
 
@@ -221,10 +226,15 @@ describe('AnthropicProvider', () => {
     });
 
     it('wraps stream errors in LLMProviderError', async () => {
-      const apiError = new Anthropic.APIError(500, {
-        type: 'server_error',
-        message: 'Internal error',
-      } as unknown as Anthropic.APIError['error'], 'Internal error', new Headers());
+      const apiError = new Anthropic.APIError(
+        500,
+        {
+          type: 'server_error',
+          message: 'Internal error',
+        } as unknown as Anthropic.APIError['error'],
+        'Internal error',
+        new Headers()
+      );
 
       const mockClient = {
         messages: {
@@ -236,9 +246,9 @@ describe('AnthropicProvider', () => {
         mockClient as unknown as Anthropic
       );
 
-      await expect(
-        provider.stream('Prompt', { onChunk: vi.fn() })
-      ).rejects.toThrow(LLMProviderError);
+      await expect(provider.stream('Prompt', { onChunk: vi.fn() })).rejects.toThrow(
+        LLMProviderError
+      );
     });
   });
 });
@@ -277,7 +287,19 @@ describe('LLMService', () => {
     });
 
     it('throws when no providers can be initialized', () => {
-      expect(() => new LLMService(createConfig({ anthropic: { apiKey: undefined, model: 'claude-sonnet-4-20250514', maxTokens: 4096, temperature: 0 } }))).toThrow();
+      expect(
+        () =>
+          new LLMService(
+            createConfig({
+              anthropic: {
+                apiKey: undefined,
+                model: 'claude-sonnet-4-20250514',
+                maxTokens: 4096,
+                temperature: 0,
+              },
+            })
+          )
+      ).toThrow();
     });
 
     it('falls back to available provider when default is not configured', () => {

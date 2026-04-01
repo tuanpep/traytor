@@ -1,7 +1,11 @@
 import chalk from 'chalk';
 import { getLogger } from '../utils/logger.js';
 import { safeFilterArray } from '../utils/safe-access.js';
-import { buildCommentBlock, buildInstructionsList, buildContextBlock } from '../utils/prompt-builder.js';
+import {
+  buildCommentBlock,
+  buildInstructionsList,
+  buildContextBlock,
+} from '../utils/prompt-builder.js';
 import { validateFilePath } from '../utils/validation.js';
 import { TemplateError } from '../utils/errors.js';
 import type { Review } from '../models/review.js';

@@ -18,6 +18,10 @@ export enum ErrorCode {
   WORKFLOW_NOT_FOUND = 'WORKFLOW_NOT_FOUND',
   WORKFLOW_STATE_ERROR = 'WORKFLOW_STATE_ERROR',
   REVIEW_FAILED = 'REVIEW_FAILED',
+  MCP_CONNECTION_ERROR = 'MCP_CONNECTION_ERROR',
+  MCP_TOOL_ERROR = 'MCP_TOOL_ERROR',
+  CONFIG_VALIDATION_ERROR = 'CONFIG_VALIDATION_ERROR',
+  AGENT_TIMEOUT = 'AGENT_TIMEOUT',
 }
 
 export class TraytorError extends Error {
@@ -279,5 +283,53 @@ export class TemplateError extends TraytorError {
       details
     );
     this.name = 'TemplateError';
+  }
+}
+
+export class MCPConnectionError extends TraytorError {
+  constructor(serverName: string, reason: string, details?: Record<string, unknown>) {
+    super(
+      ErrorCode.MCP_CONNECTION_ERROR,
+      `MCP connection error for "${serverName}": ${reason}`,
+      'Check the MCP server URL, API key, and ensure the server is running',
+      details
+    );
+    this.name = 'MCPConnectionError';
+  }
+}
+
+export class MCPToolError extends TraytorError {
+  constructor(serverName: string, toolName: string, reason: string, details?: Record<string, unknown>) {
+    super(
+      ErrorCode.MCP_TOOL_ERROR,
+      `MCP tool error for "${toolName}" on "${serverName}": ${reason}`,
+      'Check the tool name, arguments, and server status',
+      details
+    );
+    this.name = 'MCPToolError';
+  }
+}
+
+export class ConfigValidationError extends TraytorError {
+  constructor(reason: string, details?: Record<string, unknown>) {
+    super(
+      ErrorCode.CONFIG_VALIDATION_ERROR,
+      `Config validation error: ${reason}`,
+      'Check your config file syntax and values',
+      details
+    );
+    this.name = 'ConfigValidationError';
+  }
+}
+
+export class AgentTimeoutError extends TraytorError {
+  constructor(agent: string, timeoutMs: number, details?: Record<string, unknown>) {
+    super(
+      ErrorCode.AGENT_TIMEOUT,
+      `Agent "${agent}" timed out after ${timeoutMs}ms`,
+      'Increase the timeout with --timeout <ms> or simplify the task',
+      details
+    );
+    this.name = 'AgentTimeoutError';
   }
 }

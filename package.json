@@ -18,7 +18,9 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext .ts",
     "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\" \"*.{json,cjs}\"",
+    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\" \"*.{json,cjs}\"",
     "test": "vitest run",
+    "test:watch": "vitest",
     "prepublishOnly": "pnpm build"
   },
   "keywords": [

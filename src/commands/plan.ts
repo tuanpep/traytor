@@ -6,11 +6,14 @@ import type { TaskService } from '../services/task.service.js';
 import { formatPlan, formatPlanMarkdown } from '../ui/cli/formatter.js';
 import { getLogger } from '../utils/logger.js';
 import { PlanGenerationError } from '../utils/errors.js';
+import { GitDiffService } from '../core/git-diff.js';
 
 export interface PlanCommandOptions {
   files?: string[];
   output?: 'terminal' | 'clipboard' | 'markdown' | 'json';
   outputFile?: string;
+  /** Git diff target: uncommitted, main, branch:<name>, commit:<hash> */
+  diff?: string;
 }
 
 export async function runPlanCommand(
@@ -20,18 +23,29 @@ export async function runPlanCommand(
 ): Promise<void> {
   const logger = getLogger();
   const outputFormat = options.output ?? 'terminal';
+  const cwd = process.cwd();
 
   logger.info(`Starting plan generation for: "${query}"`);
 
   // 1. Create task (in memory, not persisted yet)
-  const task = await taskService.createPlanTask(query, process.cwd());
-  logger.debug(`Task created: ${task.id}`);
+  const task = await taskService.createPlanTask(query, cwd);
 
-  // 2. Generate plan with spinner
+  // 2. Gather git diff context if requested
+  let gitDiffContext: string | null = null;
+  if (options.diff) {
+    const gitDiffService = new GitDiffService(cwd);
+    const diffResult = await gitDiffService.getDiff(options.diff);
+    if (diffResult) {
+      gitDiffContext = `Git diff against ${diffResult.ref}:\n\n${diffResult.diff}`;
+      logger.info(`Included git diff context: ${diffResult.files.length} files changed`);
+    }
+  }
+
+  // 3. Generate plan with spinner
   const spinner = ora('Analyzing codebase and generating plan...').start();
 
   try {
-    const plan = await taskService.generatePlan(task, options.files);
+    const plan = await taskService.generatePlan(task, options.files, gitDiffContext ?? undefined);
 
     spinner.succeed(chalk.green('Plan generated successfully!'));
 

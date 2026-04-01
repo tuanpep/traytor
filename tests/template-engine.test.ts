@@ -80,7 +80,11 @@ describe('TemplateEngine', () => {
       const data: PlanPromptData = {
         query: 'Test',
         projectDescription: 'Test project',
-        projectContext: { totalFiles: 1, totalLines: 10, languages: { typescript: { files: 1, lines: 10 } } },
+        projectContext: {
+          totalFiles: 1,
+          totalLines: 10,
+          languages: { typescript: { files: 1, lines: 10 } },
+        },
         relevantFiles: [],
         agentsMd: 'Always use TypeScript strict mode.\nPrefer const over let.',
       };
@@ -97,7 +101,11 @@ describe('TemplateEngine', () => {
       const data: PlanPromptData = {
         query: 'Test',
         projectDescription: 'Test project',
-        projectContext: { totalFiles: 1, totalLines: 10, languages: { typescript: { files: 1, lines: 10 } } },
+        projectContext: {
+          totalFiles: 1,
+          totalLines: 10,
+          languages: { typescript: { files: 1, lines: 10 } },
+        },
         relevantFiles: [],
         agentsMd: null,
       };
@@ -154,10 +162,7 @@ describe('TemplateEngine', () => {
     it('json helper serializes objects', () => {
       const customDir = path.join(tmpDir, 'templates');
       fs.mkdirSync(customDir, { recursive: true });
-      fs.writeFileSync(
-        path.join(customDir, 'json-test.hbs'),
-        '{{{json data}}}'
-      );
+      fs.writeFileSync(path.join(customDir, 'json-test.hbs'), '{{{json data}}}');
 
       engine = new TemplateEngine(customDir);
       const result = engine.render('json-test', {
@@ -192,7 +197,9 @@ describe('TemplateEngine', () => {
   describe('error handling', () => {
     it('throws when template not found', () => {
       engine = new TemplateEngine();
-      expect(() => engine.render('nonexistent-template', {})).toThrow('Template "nonexistent-template" not found');
+      expect(() => engine.render('nonexistent-template', {})).toThrow(
+        'Template "nonexistent-template" not found'
+      );
     });
   });
 });

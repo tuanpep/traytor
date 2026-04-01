@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `traytor doctor` command — health check for configuration, API keys, agents, git repo, and storage
+- `traytor task list` command — list tasks with status/type filtering and JSON output
+- `traytor task show <id>` command — display detailed task info including plan, phases, verification, and executions
+- `traytor exec --safe-mode` flag — runs agent without `--dangerously-skip-permissions`
+- New error classes: `MCPConnectionError`, `MCPToolError`, `ConfigValidationError`, `AgentTimeoutError`
+- MCP client automatic retry with exponential backoff on 429/5xx errors
+- MCP client `reconnect()` method for reconnection to last server
+- `AgentTimeoutError` thrown when agent process times out (instead of generic error)
+- 23 new tests: MCP client (13), agent service (4), error classes (6)
+- VS Code extension: workflow state, pause, resume commands
+- VS Code extension: epic spec creation, ticket listing, ticket status, epic board commands
+
+### Changed
+- `hello` command deprecated in favor of `traytor doctor`
+- VS Code extension: replaced deny-list input validation with allow-list pattern
+- VS Code extension: workflow advance now prompts for workflow ID
+- ESLint: added `prefer-nullish-coalescing` and `strict-boolean-expressions` rules
+
+### Fixed
+- MCP client now uses proper `MCPConnectionError` and `MCPToolError` instead of generic `LLM_API_ERROR`
+- MCP client `ensureConnected` throws specific error with actionable suggestion
+
 ## [0.1.0] - 2026-03-31
 
 ### Added

@@ -470,13 +470,7 @@ function formatWorkflowState(state: WorkflowState): string {
             : chalk.dim;
 
     const icon =
-      status === 'completed'
-        ? 'v'
-        : status === 'active'
-          ? '>'
-          : status === 'skipped'
-            ? '-'
-            : 'o';
+      status === 'completed' ? 'v' : status === 'active' ? '>' : status === 'skipped' ? '-' : 'o';
 
     const prefix = isCurrent ? chalk.bold('>') : ' ';
     lines.push(

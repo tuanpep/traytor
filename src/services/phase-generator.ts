@@ -106,7 +106,8 @@ export class PhaseGenerator {
       let content = '';
       try {
         const raw = fs.readFileSync(file.path, 'utf-8');
-        content = raw.length > 3000 ? raw.slice(0, 3000) + '\n// ... (truncated)' : raw;
+        const maxSize = 5000;
+        content = raw.length > maxSize ? raw.slice(0, maxSize) + '\n// ... (truncated)' : raw;
       } catch {
         content = '// (unable to read file)';
       }

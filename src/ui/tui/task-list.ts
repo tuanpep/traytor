@@ -68,12 +68,22 @@ export function renderTaskList(items: TaskListItem[], selectedIdx?: number): str
   for (let i = 0; i < items.length; i++) {
     const item = items[i]!;
     const statusColor =
-      item.status === 'completed' ? chalk.green :
-      item.status === 'in_progress' ? chalk.yellow :
-      item.status === 'failed' ? chalk.red :
-      chalk.gray;
+      item.status === 'completed'
+        ? chalk.green
+        : item.status === 'in_progress'
+          ? chalk.yellow
+          : item.status === 'failed'
+            ? chalk.red
+            : chalk.gray;
 
-    const typeIcon = item.type === 'plan' ? 'P' : item.type === 'phases' ? 'H' : item.type === 'review' ? 'R' : 'E';
+    const typeIcon =
+      item.type === 'plan'
+        ? 'P'
+        : item.type === 'phases'
+          ? 'H'
+          : item.type === 'review'
+            ? 'R'
+            : 'E';
 
     const isSelected = i === selectedIdx;
     const prefix = isSelected ? chalk.cyan('> ') : '  ';
@@ -92,13 +102,17 @@ export function renderTaskList(items: TaskListItem[], selectedIdx?: number): str
   return lines.join('\n');
 }
 
-export async function promptTaskSearch(): Promise<{ action: 'search'; query: string } | { action: 'filter' } | { action: 'cancel' }> {
-  const { input } = await inquirer.prompt([{
-    type: 'input',
-    name: 'input',
-    message: 'Search or filter tasks (type to search, /status or /type to filter):',
-    prefix: chalk.cyan('?'),
-  }]);
+export async function promptTaskSearch(): Promise<
+  { action: 'search'; query: string } | { action: 'filter' } | { action: 'cancel' }
+> {
+  const { input } = await inquirer.prompt([
+    {
+      type: 'input',
+      name: 'input',
+      message: 'Search or filter tasks (type to search, /status or /type to filter):',
+      prefix: chalk.cyan('?'),
+    },
+  ]);
 
   if (!input.trim()) return { action: 'cancel' };
 
@@ -115,12 +129,23 @@ export async function promptTaskSelection(tasks: Task[]): Promise<Task | null> {
   }
 
   const choices = tasks.map((task) => {
-    const statusIcon = task.status === 'completed' ? chalk.green('[v]') :
-      task.status === 'in_progress' ? chalk.yellow('[>]') :
-      task.status === 'failed' ? chalk.red('[x]') :
-      chalk.gray('[o]');
+    const statusIcon =
+      task.status === 'completed'
+        ? chalk.green('[v]')
+        : task.status === 'in_progress'
+          ? chalk.yellow('[>]')
+          : task.status === 'failed'
+            ? chalk.red('[x]')
+            : chalk.gray('[o]');
 
-    const typeIcon = task.type === 'plan' ? 'P' : task.type === 'phases' ? 'H' : task.type === 'review' ? 'R' : 'E';
+    const typeIcon =
+      task.type === 'plan'
+        ? 'P'
+        : task.type === 'phases'
+          ? 'H'
+          : task.type === 'review'
+            ? 'R'
+            : 'E';
     const truncated = task.query.length > 60 ? task.query.slice(0, 60) + '...' : task.query;
 
     return {
@@ -130,21 +155,20 @@ export async function promptTaskSelection(tasks: Task[]): Promise<Task | null> {
     };
   });
 
-  const { selected } = await inquirer.prompt([{
-    type: 'select',
-    name: 'selected',
-    message: 'Select a task:',
-    choices,
-    pageSize: 15,
-  }]);
+  const { selected } = await inquirer.prompt([
+    {
+      type: 'select',
+      name: 'selected',
+      message: 'Select a task:',
+      choices,
+      pageSize: 15,
+    },
+  ]);
 
   return selected;
 }
 
-export function renderHighlightedTaskList(
-  items: TaskListItem[],
-  searchQuery: string
-): string {
+export function renderHighlightedTaskList(items: TaskListItem[], searchQuery: string): string {
   if (!searchQuery) return renderTaskList(items);
 
   const results = fuzzyFilter(items, searchQuery);
@@ -162,17 +186,29 @@ export function renderHighlightedTaskList(
 
   for (const item of results) {
     const statusColor =
-      item.status === 'completed' ? chalk.green :
-      item.status === 'in_progress' ? chalk.yellow :
-      item.status === 'failed' ? chalk.red :
-      chalk.gray;
+      item.status === 'completed'
+        ? chalk.green
+        : item.status === 'in_progress'
+          ? chalk.yellow
+          : item.status === 'failed'
+            ? chalk.red
+            : chalk.gray;
 
-    const typeIcon = item.type === 'plan' ? 'P' : item.type === 'phases' ? 'H' : item.type === 'review' ? 'R' : 'E';
+    const typeIcon =
+      item.type === 'plan'
+        ? 'P'
+        : item.type === 'phases'
+          ? 'H'
+          : item.type === 'review'
+            ? 'R'
+            : 'E';
 
     const highlighted = highlightMatches(item.query, item._matchPositions, chalk.cyan.bold);
     const statusStr = statusColor(`[${item.status.padEnd(11)}]`);
 
-    lines.push(`  ${statusStr} ${chalk.dim(typeIcon)} ${highlighted}  ${chalk.dim(item.createdAt.split('T')[0])}`);
+    lines.push(
+      `  ${statusStr} ${chalk.dim(typeIcon)} ${highlighted}  ${chalk.dim(item.createdAt.split('T')[0])}`
+    );
   }
 
   lines.push('');

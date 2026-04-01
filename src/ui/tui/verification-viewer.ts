@@ -1,6 +1,10 @@
 import chalk from 'chalk';
 import inquirer from 'inquirer';
-import type { Verification, VerificationComment, VerificationCategory } from '../../models/verification.js';
+import type {
+  Verification,
+  VerificationComment,
+  VerificationCategory,
+} from '../../models/verification.js';
 
 const CATEGORY_COLORS: Record<VerificationCategory, typeof chalk.red> = {
   critical: chalk.red,
@@ -33,7 +37,12 @@ export function renderVerificationViewer(verification: Verification): string {
   }
 
   // Summary counts
-  const counts: Record<VerificationCategory, number> = { critical: 0, major: 0, minor: 0, outdated: 0 };
+  const counts: Record<VerificationCategory, number> = {
+    critical: 0,
+    major: 0,
+    minor: 0,
+    outdated: 0,
+  };
   for (const comment of verification.comments) {
     counts[comment.category]++;
   }
@@ -109,14 +118,14 @@ export async function promptVerificationAction(comments: VerificationComment[]):
   const actionableComments = comments.filter((c) => c.suggestion);
 
   if (actionableComments.length === 0) {
-    const { action } = await inquirer.prompt([{
-      type: 'select',
-      name: 'action',
-      message: 'Verification actions:',
-      choices: [
-        { name: 'Back', value: 'back' },
-      ],
-    }]);
+    const { action } = await inquirer.prompt([
+      {
+        type: 'select',
+        name: 'action',
+        message: 'Verification actions:',
+        choices: [{ name: 'Back', value: 'back' }],
+      },
+    ]);
     return { action };
   }
 
@@ -127,13 +136,15 @@ export async function promptVerificationAction(comments: VerificationComment[]):
 
   choices.push({ name: chalk.gray('Back'), value: 'back' });
 
-  const { selected } = await inquirer.prompt([{
-    type: 'select',
-    name: 'selected',
-    message: 'Select a suggestion to apply:',
-    choices,
-    pageSize: 15,
-  }]);
+  const { selected } = await inquirer.prompt([
+    {
+      type: 'select',
+      name: 'selected',
+      message: 'Select a suggestion to apply:',
+      choices,
+      pageSize: 15,
+    },
+  ]);
 
   if (selected === 'back') {
     return { action: 'back' };

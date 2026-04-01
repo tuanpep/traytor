@@ -53,7 +53,11 @@ export function buildDashboard(tasks: Task[]): DashboardData {
         if (phase.status === 'in_progress') {
           activePhases.push(phase);
         }
-        if (phase.status === 'pending' && phase.verification === undefined && phase.plan !== undefined) {
+        if (
+          phase.status === 'pending' &&
+          phase.verification === undefined &&
+          phase.plan !== undefined
+        ) {
           pendingVerifications.push({
             id: `pending-${task.id}-${phase.order}`,
             taskId: task.id,
@@ -84,18 +88,30 @@ export function renderDashboard(data: DashboardData): string {
 
   const { byStatus, byType, total, completedToday } = data.taskStats;
 
-  lines.push(`  ${chalk.white('Total:')} ${total}    ${chalk.green('Completed today:')} ${completedToday}`);
+  lines.push(
+    `  ${chalk.white('Total:')} ${total}    ${chalk.green('Completed today:')} ${completedToday}`
+  );
   lines.push('');
 
   lines.push('  Status:');
-  lines.push(`    ${chalk.green('completed')}  ${chalk.dim(String(byStatus.completed).padStart(4))}  ${renderBar(byStatus.completed, total, chalk.green)}`);
-  lines.push(`    ${chalk.yellow('in_progress')} ${chalk.dim(String(byStatus.in_progress).padStart(4))}  ${renderBar(byStatus.in_progress, total, chalk.yellow)}`);
-  lines.push(`    ${chalk.gray('pending')}    ${chalk.dim(String(byStatus.pending).padStart(4))}  ${renderBar(byStatus.pending, total, chalk.gray)}`);
-  lines.push(`    ${chalk.red('failed')}     ${chalk.dim(String(byStatus.failed).padStart(4))}  ${renderBar(byStatus.failed, total, chalk.red)}`);
+  lines.push(
+    `    ${chalk.green('completed')}  ${chalk.dim(String(byStatus.completed).padStart(4))}  ${renderBar(byStatus.completed, total, chalk.green)}`
+  );
+  lines.push(
+    `    ${chalk.yellow('in_progress')} ${chalk.dim(String(byStatus.in_progress).padStart(4))}  ${renderBar(byStatus.in_progress, total, chalk.yellow)}`
+  );
+  lines.push(
+    `    ${chalk.gray('pending')}    ${chalk.dim(String(byStatus.pending).padStart(4))}  ${renderBar(byStatus.pending, total, chalk.gray)}`
+  );
+  lines.push(
+    `    ${chalk.red('failed')}     ${chalk.dim(String(byStatus.failed).padStart(4))}  ${renderBar(byStatus.failed, total, chalk.red)}`
+  );
   lines.push('');
 
   lines.push('  Types:');
-  lines.push(`    ${chalk.blue('plan')}    ${chalk.dim(String(byType.plan).padStart(4))}  ${chalk.cyan('phases')}  ${chalk.dim(String(byType.phases).padStart(4))}  ${chalk.magenta('review')}  ${chalk.dim(String(byType.review).padStart(4))}  ${chalk.yellow('epic')}  ${chalk.dim(String(byType.epic).padStart(4))}`);
+  lines.push(
+    `    ${chalk.blue('plan')}    ${chalk.dim(String(byType.plan).padStart(4))}  ${chalk.cyan('phases')}  ${chalk.dim(String(byType.phases).padStart(4))}  ${chalk.magenta('review')}  ${chalk.dim(String(byType.review).padStart(4))}  ${chalk.yellow('epic')}  ${chalk.dim(String(byType.epic).padStart(4))}`
+  );
   lines.push('');
 
   // Active Phases
@@ -123,15 +139,23 @@ export function renderDashboard(data: DashboardData): string {
     lines.push(chalk.bold('  Recent Tasks'));
     lines.push('');
     for (const task of data.recentTasks) {
-      const statusColor = task.status === 'completed'
-        ? chalk.green
-        : task.status === 'in_progress'
-          ? chalk.yellow
-          : task.status === 'failed'
-            ? chalk.red
-            : chalk.gray;
+      const statusColor =
+        task.status === 'completed'
+          ? chalk.green
+          : task.status === 'in_progress'
+            ? chalk.yellow
+            : task.status === 'failed'
+              ? chalk.red
+              : chalk.gray;
 
-      const typeIcon = task.type === 'plan' ? 'P' : task.type === 'phases' ? 'H' : task.type === 'review' ? 'R' : 'E';
+      const typeIcon =
+        task.type === 'plan'
+          ? 'P'
+          : task.type === 'phases'
+            ? 'H'
+            : task.type === 'review'
+              ? 'R'
+              : 'E';
 
       lines.push(
         `    ${statusColor(`[${task.status.padEnd(11)}]`)} ${chalk.dim(typeIcon)} ${task.query.slice(0, 50)}${task.query.length > 50 ? '...' : ''}`

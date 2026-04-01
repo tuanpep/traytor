@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { getLogger } from '../utils/logger.js';
-import { AgentExecutionError } from '../utils/errors.js';
+import { AgentExecutionError, AgentTimeoutError } from '../utils/errors.js';
 import { TemplateEngine } from './template-engine.js';
 import type { Plan } from '../models/plan.js';
 import type { Task } from '../models/task.js';
@@ -26,6 +26,8 @@ export interface AgentExecutionOptions {
   templateName?: string;
   /** Skip loading MCP tools for this execution */
   skipMCPLoading?: boolean;
+  /** If true, strip --dangerously-skip-permissions from agent args */
+  safeMode?: boolean;
 }
 
 export interface AgentExecutionResult {
@@ -137,7 +139,7 @@ export class AgentService {
    * Renders the plan into a prompt, sets environment variables, and spawns the process.
    */
   async execute(task: Task, options: AgentExecutionOptions = {}): Promise<AgentExecutionResult> {
-    const agentConfig = this.resolveAgentConfig(options.agentName);
+    const agentConfig = this.resolveAgentConfig(options.agentName, options.safeMode);
     const plan = task.plan;
 
     if (!plan) {
@@ -240,23 +242,33 @@ Implement all steps completely. Do not skip any steps.`;
    * Resolve the agent configuration from config or use defaults.
    * Supports looking up by name (from --agent flag or defaultAgent config).
    */
-  resolveAgentConfig(agentName?: string): AgentConfig {
+  resolveAgentConfig(agentName?: string, safeMode = false): AgentConfig {
     const name = agentName ?? this.config.defaultAgent;
 
+    let config: AgentConfig;
     if (name) {
       const found = this.config.agents.find((a) => a.name === name);
       if (found) {
         this.logger.debug(`Using agent "${name}" from config`);
-        return found;
+        config = found;
+      } else {
+        this.logger.warn(`Agent "${name}" not found in config, falling back to default`);
+        config = this.config.agents.length > 0 ? this.config.agents[0]! : DEFAULT_AGENT_CONFIG;
       }
-      this.logger.warn(`Agent "${name}" not found in config, falling back to default`);
+    } else {
+      config = this.config.agents.length > 0 ? this.config.agents[0]! : DEFAULT_AGENT_CONFIG;
     }
 
-    if (this.config.agents.length > 0) {
-      // Use the first configured agent
-      return this.config.agents[0]!;
+    if (safeMode) {
+      const dangerousArgs = ['--dangerously-skip-permissions'];
+      const filteredArgs = config.args.filter((arg) => !dangerousArgs.includes(arg));
+      if (filteredArgs.length !== config.args.length) {
+        this.logger.info('Safe mode: removed --dangerously-skip-permissions from agent args');
+      }
+      return { ...config, args: filteredArgs };
     }
-    return DEFAULT_AGENT_CONFIG;
+
+    return config;
   }
 
   /**
@@ -309,31 +321,9 @@ Implement all steps completely. Do not skip any steps.`;
       const tmpFile = env.TRAYTOR_PROMPT_TMP_FILE || '';
       const agentName = agentConfig.name;
 
-      // Build command based on agent type
-      let fullCommand: string;
+      let child: ChildProcess;
       let useStdin = false;
 
-      if (agentName === 'claude' || agentName === 'cursor') {
-        // Claude Code and cursor-agent: use temp file approach
-        // claude -p "prompt" or read from file
-        if (tmpFile) {
-          fullCommand = `${agentConfig.command} ${agentConfig.args.join(' ')} -p "$(cat ${tmpFile})"`;
-        } else {
-          fullCommand = `${agentConfig.command} ${agentConfig.args.join(' ')} -p "${prompt.replace(/"/g, '\\"').replace(/\$/g, '\\$')}"`;
-        }
-      } else if (agentName === 'opencode') {
-        // OpenCode: use --print with stdin
-        fullCommand = `${agentConfig.command} ${agentConfig.args.join(' ')}`;
-        useStdin = true;
-      } else {
-        // Default: use args as-is, stdin for prompt
-        fullCommand = [agentConfig.command, ...agentConfig.args].join(' ');
-        useStdin = true;
-      }
-
-      this.logger.info(`Spawning agent: ${fullCommand} (shell: ${agentConfig.shell})`);
-
-      let child: ChildProcess;
       try {
         const spawnOptions: SpawnOptions = {
           env,
@@ -343,11 +333,33 @@ Implement all steps completely. Do not skip any steps.`;
 
         if (agentConfig.shell === 'powershell') {
           spawnOptions.shell = 'powershell.exe';
-        } else {
-          spawnOptions.shell = true;
         }
 
-        child = spawn(fullCommand, spawnOptions);
+        if (agentName === 'claude' || agentName === 'cursor') {
+          if (!tmpFile) {
+            reject(
+              new AgentExecutionError(
+                agentName,
+                'Temp file is required for Claude/Cursor agents but was not created',
+                { command: agentConfig.command }
+              )
+            );
+            return;
+          }
+          const args = [...agentConfig.args, '-p', `@${tmpFile}`];
+          this.logger.info(`Spawning agent: ${agentConfig.command} ${args.join(' ')}`);
+          child = spawn(agentConfig.command, args, spawnOptions);
+        } else if (agentName === 'opencode') {
+          const args = agentConfig.args;
+          this.logger.info(`Spawning agent: ${agentConfig.command} ${args.join(' ')}`);
+          child = spawn(agentConfig.command, args, spawnOptions);
+          useStdin = true;
+        } else {
+          const args = agentConfig.args;
+          this.logger.info(`Spawning agent: ${agentConfig.command} ${args.join(' ')}`);
+          child = spawn(agentConfig.command, args, spawnOptions);
+          useStdin = true;
+        }
 
         if (useStdin && prompt) {
           child.stdin?.write(prompt);
@@ -383,6 +395,12 @@ Implement all steps completely. Do not skip any steps.`;
       const timer = setTimeout(() => {
         this.logger.warn(`Agent timed out after ${timeout}ms, killing process...`);
         child.kill('SIGKILL');
+        reject(
+          new AgentTimeoutError(agentConfig.name, timeout, {
+            command: agentConfig.command,
+            taskId: env.TRAYTOR_TASK_ID,
+          })
+        );
       }, timeout);
 
       child.on('error', (error) => {

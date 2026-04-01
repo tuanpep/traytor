@@ -53,19 +53,13 @@ describe('fuzzyFilter', () => {
   });
 
   it('returns all items when no query', () => {
-    const items = [
-      { label: 'a' },
-      { label: 'b' },
-    ];
+    const items = [{ label: 'a' }, { label: 'b' }];
     const results = fuzzyFilter(items, '');
     expect(results.length).toBe(2);
   });
 
   it('sorts by match score', () => {
-    const items = [
-      { label: 'Authentication module' },
-      { label: 'auth' },
-    ];
+    const items = [{ label: 'Authentication module' }, { label: 'auth' }];
     const results = fuzzyFilter(items, 'auth');
     expect(results.length).toBe(2);
     // Exact match 'auth' should score higher due to better ratio

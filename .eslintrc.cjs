@@ -11,6 +11,8 @@ module.exports = {
   rules: {
     '@typescript-eslint/no-explicit-any': 'warn',
     '@typescript-eslint/no-unnecessary-type-assertion': 'error',
+    '@typescript-eslint/prefer-nullish-coalescing': 'warn',
+    '@typescript-eslint/strict-boolean-expressions': 'warn',
     'no-console': 'off',
   },
   overrides: [

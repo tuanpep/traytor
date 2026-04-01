@@ -5,11 +5,7 @@ import { PlanGenerator } from '../src/services/plan-generator.js';
 
 function createParser() {
   // We only need the parsePlanResponse method, which doesn't use LLM
-  const generator = new PlanGenerator(
-    {} as any,
-    {} as any,
-    '/tmp'
-  );
+  const generator = new PlanGenerator({} as any, {} as any, '/tmp');
   return generator;
 }
 

@@ -49,6 +49,11 @@ export interface UserQueryPromptData {
   timestamp?: string;
 }
 
+export interface ClarificationPromptData {
+  query: string;
+  projectContext: string;
+}
+
 export interface TemplateInfo {
   name: string;
   source: 'builtin' | 'custom';
@@ -179,6 +184,13 @@ export class TemplateEngine {
   renderUserQueryTemplate(data: UserQueryPromptData): string {
     this.registerHelpers();
     const source = this.loadTemplate('user-query');
+    const template = Handlebars.compile(source);
+    return template(data);
+  }
+
+  renderClarificationTemplate(data: ClarificationPromptData): string {
+    this.registerHelpers();
+    const source = this.loadTemplate('clarification');
     const template = Handlebars.compile(source);
     return template(data);
   }

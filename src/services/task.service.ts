@@ -57,14 +57,14 @@ export class TaskService {
     return task;
   }
 
-  async generatePlan(task: Task, specificFiles?: string[]): Promise<Plan> {
+  async generatePlan(task: Task, specificFiles?: string[], gitDiffContext?: string): Promise<Plan> {
     if (!this.planGenerator) {
       throw new PlanGenerationError('Plan generator not configured', {
         suggestion: 'Ensure LLM service is properly initialized',
       });
     }
 
-    const plan = await this.planGenerator.generate(task.query, specificFiles);
+    const plan = await this.planGenerator.generate(task.query, specificFiles, gitDiffContext);
     task.plan = plan;
     task.status = 'completed';
     task.updatedAt = new Date().toISOString();
@@ -82,6 +82,24 @@ export class TaskService {
     task.status = 'completed';
     task.updatedAt = new Date().toISOString();
     await this.taskRepository.save(task);
+  }
+
+  async refinePlan(task: Task, feedback: string): Promise<Plan> {
+    if (!this.planGenerator) {
+      throw new PlanGenerationError('Plan generator not configured', {
+        suggestion: 'Ensure LLM service is properly initialized',
+      });
+    }
+
+    if (!task.plan) {
+      throw new PlanGenerationError('Task has no plan to refine');
+    }
+
+    const refinedPlan = await this.planGenerator.refine(task.plan, task.query, feedback);
+    task.plan = refinedPlan;
+    task.updatedAt = new Date().toISOString();
+    await this.taskRepository.save(task);
+    return refinedPlan;
   }
 
   async getTask(taskId: string): Promise<Task> {
@@ -315,8 +333,8 @@ export class TaskService {
     phase.updatedAt = new Date().toISOString();
 
     // Build context carry-over from all completed phases before this one
-    const completedBefore = task
-      .phases.filter((p) => p.status === 'completed' && p.order < phaseOrder)
+    const completedBefore = task.phases
+      .filter((p) => p.status === 'completed' && p.order < phaseOrder)
       .sort((a, b) => a.order - b.order);
     phase.contextCarryOver = buildContextCarryOver(completedBefore);
 

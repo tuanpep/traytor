@@ -26,7 +26,8 @@ function getCustomTemplateDir(projectConfigDir: string): string {
 function listBuiltinTemplates(): string[] {
   const dir = getBuiltinTemplateDir();
   try {
-    return fs.readdirSync(dir)
+    return fs
+      .readdirSync(dir)
       .filter((f) => f.endsWith('.hbs'))
       .map((f) => f.replace('.hbs', ''));
   } catch {
@@ -37,7 +38,8 @@ function listBuiltinTemplates(): string[] {
 function listCustomTemplates(projectConfigDir: string): string[] {
   const dir = getCustomTemplateDir(projectConfigDir);
   try {
-    return fs.readdirSync(dir)
+    return fs
+      .readdirSync(dir)
       .filter((f) => f.endsWith('.hbs'))
       .map((f) => f.replace('.hbs', ''));
   } catch {
@@ -65,7 +67,9 @@ export async function runTemplateList(ctx: TemplateCommandContext): Promise<void
   if (customs.length > 0) {
     console.log(chalk.cyan('  Custom:'));
     for (const name of customs) {
-      const overrides = BUILTIN_TEMPLATE_NAMES.includes(name) ? chalk.yellow(' (overrides built-in)') : '';
+      const overrides = BUILTIN_TEMPLATE_NAMES.includes(name)
+        ? chalk.yellow(' (overrides built-in)')
+        : '';
       console.log(chalk.dim(`    ${name}${overrides}`));
     }
     console.log('');
@@ -144,7 +148,9 @@ export async function runTemplateCreate(
   fs.writeFileSync(templatePath, content, 'utf-8');
   logger.info(`Template "${name}" created at ${templatePath}`);
 
-  const overrides = BUILTIN_TEMPLATE_NAMES.includes(name) ? chalk.yellow(' (overrides built-in)') : '';
+  const overrides = BUILTIN_TEMPLATE_NAMES.includes(name)
+    ? chalk.yellow(' (overrides built-in)')
+    : '';
   console.log(chalk.green(`Template "${chalk.bold(name)}" created successfully.${overrides}`));
   console.log(chalk.dim(`  Path: ${templatePath}`));
 }

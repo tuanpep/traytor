@@ -10,11 +10,13 @@ import { validateFilePath } from '../utils/validation.js';
 import type { Verification, VerificationComment } from '../models/verification.js';
 import type { Task } from '../models/task.js';
 import type { AgentService } from './agent-service.js';
+import type { Verifier } from '../core/verifier.js';
 
 export interface FixCommentResult {
   commentId: string;
   success: boolean;
   message: string;
+  verified?: boolean;
 }
 
 export interface FixAllResult {
@@ -27,12 +29,15 @@ export interface FixAllResult {
 export class VerificationFixService {
   private logger = getLogger();
   private readonly safeWorkingDir: string;
+  private readonly verifier?: Verifier;
 
   constructor(
     private readonly agentService: AgentService,
-    workingDir: string
+    workingDir: string,
+    verifier?: Verifier
   ) {
     this.safeWorkingDir = validateFilePath(workingDir);
+    this.verifier = verifier;
   }
 
   generateFixPrompt(
@@ -101,7 +106,8 @@ export class VerificationFixService {
   async fixComment(
     comment: VerificationComment,
     task: Task,
-    agentName?: string
+    agentName?: string,
+    verifier?: Verifier
   ): Promise<FixCommentResult> {
     if (!comment) {
       return {
@@ -137,19 +143,58 @@ export class VerificationFixService {
         agentName,
       });
 
-      if (result.success) {
-        return {
-          commentId: comment.id,
-          success: true,
-          message: 'Comment fixed successfully',
-        };
-      } else {
+      if (!result.success) {
         return {
           commentId: comment.id,
           success: false,
           message: result.stderr || 'Agent execution failed',
         };
       }
+
+      if (verifier) {
+        this.logger.info(`Re-verifying comment ${comment.id} after fix...`);
+        try {
+          const verifyResult = await verifier.verify(task, {
+            workingDir: this.safeWorkingDir,
+            mode: 'reverify',
+          });
+
+          const stillOpen = verifyResult.comments.find(
+            (c) => c.id === comment.id && c.status === 'open'
+          );
+
+          if (stillOpen) {
+            return {
+              commentId: comment.id,
+              success: false,
+              verified: false,
+              message: 'Comment still open after fix - fix may not have addressed the issue',
+            };
+          }
+
+          return {
+            commentId: comment.id,
+            success: true,
+            verified: true,
+            message: 'Comment fixed and verified',
+          };
+        } catch (verifyError) {
+          this.logger.warn(`Re-verification failed: ${verifyError}, assuming fix succeeded`);
+          return {
+            commentId: comment.id,
+            success: true,
+            verified: false,
+            message: 'Fix applied but verification inconclusive',
+          };
+        }
+      }
+
+      return {
+        commentId: comment.id,
+        success: true,
+        verified: false,
+        message: 'Comment fixed successfully (verification skipped)',
+      };
     } catch (error) {
       this.logger.error(`Failed to fix comment ${comment.id}: ${error}`);
       return {
@@ -187,7 +232,7 @@ export class VerificationFixService {
 
     for (const comment of selectedComments) {
       console.log(chalk.dim(`  Processing: ${comment.message.substring(0, 50)}...`));
-      const result = await this.fixComment(comment, task, agentName);
+      const result = await this.fixComment(comment, task, agentName, this.verifier);
       results.push(result);
 
       if (result.success) {
@@ -255,7 +300,7 @@ export class VerificationFixService {
 
     for (const comment of commentsToFix) {
       console.log(chalk.dim(`  Processing: ${comment.message.substring(0, 50)}...`));
-      const result = await this.fixComment(comment, task, options?.agentName);
+      const result = await this.fixComment(comment, task, options?.agentName, this.verifier);
       results.push(result);
 
       if (result.success) {

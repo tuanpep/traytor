@@ -35,7 +35,10 @@ function getAgentsFromConfig(config: Record<string, unknown>): AgentConfig[] {
   return agents.map((a) => AgentConfigSchema.parse(a));
 }
 
-function setAgentsInConfig(config: Record<string, unknown>, agents: AgentConfig[]): Record<string, unknown> {
+function setAgentsInConfig(
+  config: Record<string, unknown>,
+  agents: AgentConfig[]
+): Record<string, unknown> {
   return { ...config, agents: agents.map((a) => ({ ...a })) };
 }
 
@@ -97,7 +100,9 @@ export function runAgentAdd(
   // Check for duplicate name
   const existing = agents.find((a) => a.name === name);
   if (existing) {
-    console.error(chalk.red(`Agent "${name}" already exists. Use \`traytor agent remove ${name}\` first.`));
+    console.error(
+      chalk.red(`Agent "${name}" already exists. Use \`traytor agent remove ${name}\` first.`)
+    );
     return;
   }
 

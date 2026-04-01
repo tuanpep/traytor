@@ -1,6 +1,32 @@
 import chalk from 'chalk';
 
 const COMMAND_DOCS: Record<string, string> = {
+  setup: `${chalk.bold('traytor setup')}
+${chalk.dim('─────────────────────────────────────────────────')}
+
+Interactive setup wizard to configure Traytor for first-time use.
+
+${chalk.bold('Usage:')}
+  traytor setup
+
+${chalk.bold('Options:')}
+  --provider <provider>    Provider: anthropic, openai, openai-compatible
+  --api-key <key>          API key for the provider (non-interactive mode)
+  --project                Create project-level config in .traytor/
+  -v, --verbose            Show verbose output
+
+${chalk.bold('Examples:')}
+  traytor setup                          # Interactive setup
+  traytor setup --provider anthropic --api-key sk-ant-xxx  # Non-interactive
+  traytor setup --project                # Create project config only
+
+${chalk.bold('What it does:')}
+  1. Creates required directories (~/.traytor/data, keys, etc.)
+  2. Guides you through selecting an LLM provider and model
+  3. Securely stores API keys in system keychain or encrypted file
+  4. Optionally configures a default AI agent (e.g., Claude Code)
+  5. Writes user config (~/.traytor/config.yaml) and/or project config`,
+
   config: `${chalk.bold('traytor config <subcommand> [provider] [apiKey]')}
 ${chalk.dim('─────────────────────────────────────────────────')}
 
@@ -8,12 +34,14 @@ Manage configuration and securely store API keys.
 
 ${chalk.bold('Subcommands:')}
   show                     Show current configuration
+  switch                   Switch to a different LLM provider
   set-key <provider> <key> Securely store an API key
   get-key <provider>       Show a stored API key (masked)
   remove-key <provider>    Remove a stored API key
 
 ${chalk.bold('Examples:')}
   traytor config show
+  traytor config switch
   traytor config set-key anthropic sk-ant-...
   traytor config get-key openai
   traytor config remove-key anthropic

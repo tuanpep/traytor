@@ -2,25 +2,179 @@
   "name": "traytor-vscode",
   "displayName": "Traytor - Spec Driven Development",
   "description": "IDE integration for the Traytor spec-driven development CLI tool",
-  "version": "0.1.0",
-  "publisher": "traytor",
+  "version": "0.2.0",
+  "publisher": "tuanpep",
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.90.0"
   },
   "categories": [
     "Programming Languages",
-    "Developer Tools"
+    "Developer Tools",
+    "AI"
   ],
+  "icon": "icon.png",
+  "keywords": [
+    "traytor",
+    "spec-driven-development",
+    "ai-coding",
+    "code-generation",
+    "code-review",
+    "claude",
+    "openai",
+    "agent",
+    "llm",
+    "plan",
+    "verify",
+    "workflow"
+  ],
+  "galleryBanner": {
+    "color": "#1e1e2e",
+    "theme": "dark"
+  },
   "activationEvents": [
     "onCommand:traytor.createPlan",
     "onCommand:traytor.executeTask",
     "onCommand:traytor.verifyTask",
+    "onCommand:traytor.review",
     "onCommand:traytor.showHistory",
-    "onCommand:traytor.refreshTasks"
+    "onCommand:traytor.showUsage",
+    "onCommand:traytor.showTaskDetails",
+    "onCommand:traytor.deleteTask",
+    "onCommand:traytor.copyTaskId",
+    "onCommand:traytor.refreshTasks",
+    "onCommand:traytor.setup",
+    "onCommand:traytor.phases",
+    "onCommand:traytor.phasesList",
+    "onCommand:traytor.phasesAdd",
+    "onCommand:traytor.phasesDelete",
+    "onCommand:traytor.yolo",
+    "onCommand:traytor.epic",
+    "onCommand:traytor.epicListSpecs",
+    "onCommand:traytor.epicCreateTicket",
+    "onCommand:traytor.epicCreateSpec",
+    "onCommand:traytor.epicListTickets",
+    "onCommand:traytor.epicUpdateTicketStatus",
+    "onCommand:traytor.epicBoard",
+    "onCommand:traytor.workflowList",
+    "onCommand:traytor.workflowCreate",
+    "onCommand:traytor.workflowAdvance",
+    "onCommand:traytor.workflowState",
+    "onCommand:traytor.workflowPause",
+    "onCommand:traytor.workflowResume",
+    "onCommand:traytor.epicCreateSpec",
+    "onCommand:traytor.epicListTickets",
+    "onCommand:traytor.epicUpdateTicketStatus",
+    "onCommand:traytor.epicBoard",
+    "onCommand:traytor.agentList",
+    "onCommand:traytor.agentAdd",
+    "onCommand:traytor.templateList",
+    "onCommand:traytor.templateCreate",
+    "onCommand:traytor.mermaidPlan",
+    "onCommand:traytor.ticketAssist",
+    "onCommand:traytor.gitStatus",
+    "onCommand:traytor.gitDiff",
+    "onCommand:traytor.gitCommit",
+    "onCommand:traytor.configShow",
+    "onCommand:traytor.configSetKey",
+    "onCommand:traytor.modelProfileList",
+    "onCommand:traytor.modelProfileSet",
+    "onCommand:traytor.viewByType",
+    "onCommand:traytor.viewByStatus",
+    "onCommand:traytor.searchTasks",
+    "onCommand:traytor.clearSearch",
+    "workspaceContains:.traytor"
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "Traytor",
+      "properties": {
+        "traytor.cliPath": {
+          "type": "string",
+          "default": "traytor",
+          "description": "Path to the Traytor CLI executable. Use 'traytor' if installed globally.",
+          "scope": "machine"
+        },
+        "traytor.provider": {
+          "type": "string",
+          "enum": [
+            "anthropic",
+            "openai",
+            "openai-compatible"
+          ],
+          "default": "anthropic",
+          "description": "Default LLM provider for Traytor."
+        },
+        "traytor.apiKey.anthropic": {
+          "type": "string",
+          "default": "",
+          "description": "Anthropic API key (stored in VS Code settings).",
+          "scope": "machine"
+        },
+        "traytor.apiKey.openai": {
+          "type": "string",
+          "default": "",
+          "description": "OpenAI API key (stored in VS Code settings).",
+          "scope": "machine"
+        },
+        "traytor.workingDirectory": {
+          "type": "string",
+          "default": "",
+          "description": "Override the working directory for Traytor commands. Leave empty to use workspace root."
+        },
+        "traytor.timeout.plan": {
+          "type": "number",
+          "default": 120000,
+          "description": "Timeout in milliseconds for plan generation commands."
+        },
+        "traytor.timeout.exec": {
+          "type": "number",
+          "default": 300000,
+          "description": "Timeout in milliseconds for task execution commands."
+        },
+        "traytor.timeout.verify": {
+          "type": "number",
+          "default": 120000,
+          "description": "Timeout in milliseconds for verification commands."
+        },
+        "traytor.timeout.history": {
+          "type": "number",
+          "default": 10000,
+          "description": "Timeout in milliseconds for history/usage commands."
+        },
+        "traytor.timeout.review": {
+          "type": "number",
+          "default": 180000,
+          "description": "Timeout in milliseconds for code review commands."
+        },
+        "traytor.timeout.phases": {
+          "type": "number",
+          "default": 180000,
+          "description": "Timeout in milliseconds for phases commands."
+        },
+        "traytor.timeout.epic": {
+          "type": "number",
+          "default": 300000,
+          "description": "Timeout in milliseconds for epic commands."
+        },
+        "traytor.timeout.workflow": {
+          "type": "number",
+          "default": 60000,
+          "description": "Timeout in milliseconds for workflow commands."
+        },
+        "traytor.timeout.mermaid": {
+          "type": "number",
+          "default": 60000,
+          "description": "Timeout in milliseconds for mermaid diagram commands."
+        }
+      }
+    },
     "commands": [
+      {
+        "command": "traytor.setup",
+        "title": "Traytor: Setup",
+        "category": "Traytor"
+      },
       {
         "command": "traytor.createPlan",
         "title": "Traytor: Create Plan",
@@ -37,15 +191,312 @@
         "category": "Traytor"
       },
       {
+        "command": "traytor.review",
+        "title": "Traytor: Code Review",
+        "category": "Traytor"
+      },
+      {
         "command": "traytor.showHistory",
         "title": "Traytor: Show Task History",
         "category": "Traytor"
+      },
+      {
+        "command": "traytor.showUsage",
+        "title": "Traytor: Show Usage Statistics",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.showTaskDetails",
+        "title": "Traytor: Show Task Details",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.deleteTask",
+        "title": "Traytor: Delete Task",
+        "category": "Traytor",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "traytor.copyTaskId",
+        "title": "Traytor: Copy Task ID",
+        "category": "Traytor",
+        "icon": "$(clippy)"
       },
       {
         "command": "traytor.refreshTasks",
         "title": "Traytor: Refresh Task List",
         "category": "Traytor",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "traytor.viewByType",
+        "title": "Traytor: View Tasks by Type",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.viewByStatus",
+        "title": "Traytor: View Tasks by Status",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.searchTasks",
+        "title": "Traytor: Search Tasks",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.clearSearch",
+        "title": "Traytor: Clear Search",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.phases",
+        "title": "Traytor: Create Phases",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.phasesList",
+        "title": "Traytor: List Phases",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.phasesAdd",
+        "title": "Traytor: Add Phase",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.phasesDelete",
+        "title": "Traytor: Delete Phase",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.yolo",
+        "title": "Traytor: YOLO Mode",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.epic",
+        "title": "Traytor: Create Epic",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.epicListSpecs",
+        "title": "Traytor: List Epic Specs",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.epicCreateTicket",
+        "title": "Traytor: Create Epic Ticket",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.epicCreateSpec",
+        "title": "Traytor: Create Epic Spec",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.epicListTickets",
+        "title": "Traytor: List Epic Tickets",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.epicUpdateTicketStatus",
+        "title": "Traytor: Update Epic Ticket Status",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.epicBoard",
+        "title": "Traytor: Open Epic Board",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.workflowList",
+        "title": "Traytor: List Workflows",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.workflowCreate",
+        "title": "Traytor: Create Workflow",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.workflowAdvance",
+        "title": "Traytor: Advance Workflow",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.workflowState",
+        "title": "Traytor: Show Workflow State",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.workflowPause",
+        "title": "Traytor: Pause Workflow",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.workflowResume",
+        "title": "Traytor: Resume Workflow",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.agentList",
+        "title": "Traytor: List Agents",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.agentAdd",
+        "title": "Traytor: Add Agent",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.templateList",
+        "title": "Traytor: List Templates",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.templateCreate",
+        "title": "Traytor: Create Template",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.mermaidPlan",
+        "title": "Traytor: Generate Mermaid Diagram",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.ticketAssist",
+        "title": "Traytor: Ticket Assist",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.gitStatus",
+        "title": "Traytor: Git Status",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.gitDiff",
+        "title": "Traytor: Git Diff",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.gitCommit",
+        "title": "Traytor: Git Commit",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.configShow",
+        "title": "Traytor: Show Config",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.configSetKey",
+        "title": "Traytor: Set API Key",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.modelProfileList",
+        "title": "Traytor: List Model Profiles",
+        "category": "Traytor"
+      },
+      {
+        "command": "traytor.modelProfileSet",
+        "title": "Traytor: Set Model Profile",
+        "category": "Traytor"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "traytor.searchTasks",
+          "when": "view == traytorTasksView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "traytor.clearSearch",
+          "when": "view == traytorTasksView",
+          "group": "navigation@2"
+        },
+        {
+          "command": "traytor.createPlan",
+          "when": "view == traytorTasksView",
+          "group": "navigation@3"
+        },
+        {
+          "command": "traytor.refreshTasks",
+          "when": "view == traytorTasksView",
+          "group": "navigation@4"
+        },
+        {
+          "command": "traytor.viewByType",
+          "when": "view == traytorTasksView",
+          "group": "overflow@1"
+        },
+        {
+          "command": "traytor.viewByStatus",
+          "when": "view == traytorTasksView",
+          "group": "overflow@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "traytor.showTaskDetails",
+          "when": "view == traytorTasksView && viewItem =~ /^traytorTask-/",
+          "group": "inline"
+        },
+        {
+          "command": "traytor.executeTask",
+          "when": "view == traytorTasksView && viewItem =~ /^traytorTask-(pending|failed)/",
+          "group": "1_execute"
+        },
+        {
+          "command": "traytor.verifyTask",
+          "when": "view == traytorTasksView && viewItem =~ /^traytorTask-(in_progress|completed)/",
+          "group": "2_verify"
+        },
+        {
+          "command": "traytor.copyTaskId",
+          "when": "view == traytorTasksView && viewItem =~ /^traytorTask-/",
+          "group": "3_actions"
+        },
+        {
+          "command": "traytor.deleteTask",
+          "when": "view == traytorTasksView && viewItem =~ /^traytorTask-/",
+          "group": "4_delete"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "traytor.showTaskDetails",
+          "when": "false"
+        },
+        {
+          "command": "traytor.deleteTask",
+          "when": "false"
+        },
+        {
+          "command": "traytor.copyTaskId",
+          "when": "false"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "traytor.createPlan",
+        "key": "ctrl+shift+t p",
+        "mac": "cmd+shift+t p",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "traytor.executeTask",
+        "key": "ctrl+shift+t e",
+        "mac": "cmd+shift+t e",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "traytor.verifyTask",
+        "key": "ctrl+shift+t v",
+        "mac": "cmd+shift+t v",
+        "when": "editorTextFocus"
       }
     ],
     "viewsContainers": {
@@ -69,18 +520,32 @@
     "viewsWelcome": [
       {
         "view": "traytorTasksView",
-        "contents": "No tasks found.\n[Traytor: Create Plan](command:traytor.createPlan)"
+        "contents": "No tasks found.\n\n[Create Plan](command:traytor.createPlan)\n[Create Phases](command:traytor.phases)\n[Run Code Review](command:traytor.review)\n[Run Setup](command:traytor.setup)"
       }
     ]
   },
   "scripts": {
     "build": "tsc",
     "watch": "tsc -watch",
-    "lint": "eslint src --ext ts"
+    "lint": "eslint src --ext ts",
+    "package": "vsce package",
+    "publish": "vsce publish",
+    "prepublishOnly": "pnpm build"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tuanpep/traytor",
+    "directory": "extension"
+  },
+  "bugs": {
+    "url": "https://github.com/tuanpep/traytor/issues"
+  },
+  "homepage": "https://github.com/tuanpep/traytor#readme",
+  "license": "ISC",
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "@types/vscode": "^1.85.0",
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^3.0.0",
     "typescript": "^5.3.0"
   }
 }

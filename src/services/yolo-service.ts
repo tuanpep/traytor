@@ -227,6 +227,7 @@ export class YOLOService {
       }
 
       let executionSuccess = true;
+      let verificationPassed = true;
       if (!options.dryRun) {
         console.log(chalk.dim('\n  Executing...'));
         const execResult = await this.execPhase(task, phase, plan, options);
@@ -244,6 +245,7 @@ export class YOLOService {
           approved: verifyResult.approved,
           commentsCount: verifyResult.blockingComments,
         };
+        verificationPassed = verifyResult.approved;
         console.log(
           verifyResult.approved
             ? chalk.green(`  Verification passed (${verifyResult.commentsCount} comments)`)
@@ -253,7 +255,7 @@ export class YOLOService {
         );
       }
 
-      if (options.autoCommit && !options.dryRun) {
+      if (options.autoCommit && !options.dryRun && executionSuccess && verificationPassed) {
         console.log(chalk.dim('\n  Committing...'));
         const commitResult = await this.commitPhase(task, phase, options);
         if (commitResult) {
@@ -262,7 +264,7 @@ export class YOLOService {
         }
       }
 
-      result.status = executionSuccess ? 'success' : 'failed';
+      result.status = executionSuccess && verificationPassed ? 'success' : 'failed';
     } catch (error) {
       result.status = 'failed';
       result.error = error instanceof Error ? error.message : String(error);

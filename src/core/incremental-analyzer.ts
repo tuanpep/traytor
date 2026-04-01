@@ -77,12 +77,18 @@ export class IncrementalAnalyzer {
     return codebase.files.filter((f) => !changed.has(f.path));
   }
 
-  async reanalyzeChanged(): Promise<{ changed: AnalyzedFile[]; unchanged: AnalyzedFile[]; codebase: Codebase }> {
+  async reanalyzeChanged(): Promise<{
+    changed: AnalyzedFile[];
+    unchanged: AnalyzedFile[];
+    codebase: Codebase;
+  }> {
     const fullCodebase = await this.analyze();
     const changed = this.getChangedFiles(fullCodebase);
     const unchanged = fullCodebase.files.filter((f) => !changed.includes(f));
 
-    this.logger.info(`Incremental analysis: ${changed.length} changed, ${unchanged.length} unchanged`);
+    this.logger.info(
+      `Incremental analysis: ${changed.length} changed, ${unchanged.length} unchanged`
+    );
 
     // Re-analyze only changed files
     const reanalyzedChanged: AnalyzedFile[] = [];
@@ -114,7 +120,9 @@ export class IncrementalAnalyzer {
   }
 
   invalidateFile(filePath: string): void {
-    const absolutePath = path.isAbsolute(filePath) ? filePath : path.resolve(this.rootPath, filePath);
+    const absolutePath = path.isAbsolute(filePath)
+      ? filePath
+      : path.resolve(this.rootPath, filePath);
     this.mtimeCache.delete(absolutePath);
     this.analysisCache.invalidateByPattern(new RegExp(`^file:${absolutePath}:`));
     this.analysisCache.delete(buildProjectAnalysisCacheKey(this.rootPath));

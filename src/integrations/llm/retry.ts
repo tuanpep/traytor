@@ -64,7 +64,10 @@ export async function withRetry<T>(
       }
 
       const delay = calculateDelay(attempt, opts.baseDelayMs, opts.maxDelayMs);
-      const status = error instanceof LLMProviderError ? (error.details?.status as number | undefined) : undefined;
+      const status =
+        error instanceof LLMProviderError
+          ? (error.details?.status as number | undefined)
+          : undefined;
 
       logger.warn(
         `LLM API request failed (attempt ${attempt + 1}/${opts.maxRetries + 1}, status: ${status ?? 'unknown'}). Retrying in ${Math.round(delay)}ms...`

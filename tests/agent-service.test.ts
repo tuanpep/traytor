@@ -124,9 +124,10 @@ describe('AgentService', () => {
 
     expect(mockSpawn).toHaveBeenCalled();
     const spawnArgs = mockSpawn.mock.calls[0];
-    expect(spawnArgs[0]).toBe('claude --dangerously-skip-permissions');
+    expect(spawnArgs[0]).toBe('claude');
+    expect(spawnArgs[1]).toEqual(expect.arrayContaining(['--dangerously-skip-permissions']));
 
-    const spawnOptions = spawnArgs[1];
+    const spawnOptions = spawnArgs[2];
     expect(spawnOptions.env.TRAYTOR_PROMPT).toContain('Test task');
     expect(spawnOptions.env.TRAYTOR_PROMPT_TMP_FILE).toBeDefined();
     expect(spawnOptions.env.TRAYTOR_TASK_ID).toBe('task_test_123');
@@ -175,10 +176,9 @@ describe('AgentService', () => {
 
     expect(mockSpawn).toHaveBeenCalled();
     const spawnArgs = mockSpawn.mock.calls[0];
-    expect(spawnArgs[0]).toBe('my-agent --yes');
-    // shell mode: options are the second argument
-    const spawnOptions = spawnArgs[1];
-    expect(spawnOptions.shell).toBe(true);
+    expect(spawnArgs[0]).toBe('my-agent');
+    expect(spawnArgs[1]).toEqual(['--yes']);
+    const spawnOptions = spawnArgs[2];
     expect(spawnOptions.env.CUSTOM_VAR).toBe('value');
   });
 

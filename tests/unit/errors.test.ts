@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import {
   AgentExecutionError,
+  AgentTimeoutError,
   ConfigError,
+  ConfigValidationError,
   FileNotFoundError,
   LLMProviderError,
+  MCPConnectionError,
+  MCPToolError,
   PlanGenerationError,
   TemplateError,
   TraytorError,
@@ -78,5 +82,48 @@ describe('LLMProviderError', () => {
     expect(error).toBeInstanceOf(TraytorError);
     expect(error.code).toBe('LLM_API_ERROR');
     expect(error.name).toBe('LLMProviderError');
+  });
+});
+
+describe('MCPConnectionError', () => {
+  it('maps to MCP_CONNECTION_ERROR code with server name', () => {
+    const error = new MCPConnectionError('my-server', 'ECONNREFUSED');
+    expect(error).toBeInstanceOf(TraytorError);
+    expect(error.code).toBe('MCP_CONNECTION_ERROR');
+    expect(error.name).toBe('MCPConnectionError');
+    expect(error.message).toContain('my-server');
+    expect(error.suggestion).toContain('MCP server');
+  });
+});
+
+describe('MCPToolError', () => {
+  it('maps to MCP_TOOL_ERROR code with server and tool name', () => {
+    const error = new MCPToolError('my-server', 'read_file', 'tool not found');
+    expect(error).toBeInstanceOf(TraytorError);
+    expect(error.code).toBe('MCP_TOOL_ERROR');
+    expect(error.name).toBe('MCPToolError');
+    expect(error.message).toContain('read_file');
+    expect(error.message).toContain('my-server');
+  });
+});
+
+describe('ConfigValidationError', () => {
+  it('maps to CONFIG_VALIDATION_ERROR code', () => {
+    const error = new ConfigValidationError('invalid provider: "unknown"');
+    expect(error).toBeInstanceOf(TraytorError);
+    expect(error.code).toBe('CONFIG_VALIDATION_ERROR');
+    expect(error.name).toBe('ConfigValidationError');
+    expect(error.suggestion).toContain('config');
+  });
+});
+
+describe('AgentTimeoutError', () => {
+  it('maps to AGENT_TIMEOUT code with timeout info', () => {
+    const error = new AgentTimeoutError('claude-code', 300000);
+    expect(error).toBeInstanceOf(TraytorError);
+    expect(error.code).toBe('AGENT_TIMEOUT');
+    expect(error.name).toBe('AgentTimeoutError');
+    expect(error.message).toContain('300000ms');
+    expect(error.suggestion).toContain('--timeout');
   });
 });

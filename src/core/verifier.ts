@@ -77,8 +77,14 @@ export class Verifier {
       const fileComparison = this.compareFiles(task.plan, codebase);
       const codeChanges = this.gatherCodeChanges(task.plan, codebase);
 
-      if (fileComparison.missing.length === 0 && fileComparison.present.length === 0 && fileComparison.created.length === 0) {
-        this.logger.warn('File comparison returned empty results, continuing with empty code changes');
+      if (
+        fileComparison.missing.length === 0 &&
+        fileComparison.present.length === 0 &&
+        fileComparison.created.length === 0
+      ) {
+        this.logger.warn(
+          'File comparison returned empty results, continuing with empty code changes'
+        );
       }
 
       // 3. Build verification prompt
@@ -228,10 +234,10 @@ export class Verifier {
         throw new FileNotFoundError(this.workingDir, { originalError: error });
       }
       if (code === 'EACCES') {
-        throw new VerificationError(
-          `Cannot access working directory: ${this.workingDir}`,
-          { workingDir: this.workingDir, originalError: error }
-        );
+        throw new VerificationError(`Cannot access working directory: ${this.workingDir}`, {
+          workingDir: this.workingDir,
+          originalError: error,
+        });
       }
       throw new VerificationError(
         `Failed to analyze codebase: ${error instanceof Error ? error.message : String(error)}`,

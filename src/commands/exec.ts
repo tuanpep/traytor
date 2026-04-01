@@ -15,6 +15,8 @@ export interface ExecCommandOptions {
   agent?: string;
   /** Custom template name to use */
   template?: string;
+  /** Run agent without --dangerously-skip-permissions */
+  safeMode?: boolean;
 }
 
 /**
@@ -70,6 +72,7 @@ export async function runExecCommand(
       timeout: options.timeout,
       agentName: options.agent,
       templateName: options.template,
+      safeMode: options.safeMode,
     });
 
     spinner.stop();
@@ -187,6 +190,7 @@ async function executePhase(
       timeout: options.timeout,
       agentName: options.agent,
       templateName: options.template,
+      safeMode: options.safeMode,
     });
 
     spinner.stop();
@@ -228,7 +232,9 @@ async function executePhase(
     const nextPhase = task.phases.find((p) => p.order === phaseOrder + 1);
     if (nextPhase) {
       console.log(
-        chalk.dim(`Next: \`traytor exec ${task.id} --phase ${nextPhase.order}\` (${nextPhase.name})`)
+        chalk.dim(
+          `Next: \`traytor exec ${task.id} --phase ${nextPhase.order}\` (${nextPhase.name})`
+        )
       );
     }
   } catch (error) {

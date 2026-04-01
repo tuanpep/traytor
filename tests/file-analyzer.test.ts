@@ -21,7 +21,10 @@ describe('FileAnalyzer', () => {
     fs.writeFileSync(fullPath, content);
   }
 
-  function getFileByPath(codebase: Awaited<ReturnType<FileAnalyzer['analyze']>>, relativePath: string) {
+  function getFileByPath(
+    codebase: Awaited<ReturnType<FileAnalyzer['analyze']>>,
+    relativePath: string
+  ) {
     return codebase.files.find((f) => f.relativePath === relativePath);
   }
 

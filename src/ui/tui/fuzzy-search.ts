@@ -54,7 +54,7 @@ export function fuzzyMatch(query: string, text: string): FuzzyMatch | null {
   if (qIdx < q.length) return null; // Didn't match all characters
 
   // Adjust score by how much of the text was matched
-  score *= (q.length / t.length);
+  score *= q.length / t.length;
 
   return { item: text, score, matches };
 }
@@ -85,7 +85,11 @@ export function fuzzyFilter<T extends { label: string }>(
 /**
  * Highlight matched characters in a string using ANSI colors.
  */
-export function highlightMatches(text: string, positions: number[], color: (s: string) => string): string {
+export function highlightMatches(
+  text: string,
+  positions: number[],
+  color: (s: string) => string
+): string {
   if (positions.length === 0) return text;
 
   const posSet = new Set(positions);

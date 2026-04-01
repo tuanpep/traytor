@@ -26,6 +26,7 @@ export interface PlanPromptData {
     content: string;
   }[];
   agentsMd: string | null;
+  gitDiffContext?: string;
 }
 
 // ─── Plan Generator ────────────────────────────────────────────────────────
@@ -39,7 +40,7 @@ export class PlanGenerator {
     private readonly workingDir: string
   ) {}
 
-  async generate(query: string, specificFiles?: string[]): Promise<Plan> {
+  async generate(query: string, specificFiles?: string[], gitDiffContext?: string): Promise<Plan> {
     this.logger.info(`Generating plan for: ${query}`);
 
     // 1. Gather project context
@@ -62,6 +63,9 @@ export class PlanGenerator {
 
     // 3. Build prompt data
     const promptData = this.buildPromptData(query, context, relevantFiles);
+    if (gitDiffContext) {
+      promptData.gitDiffContext = gitDiffContext;
+    }
 
     // 4. Render the plan template
     const prompt = this.templateEngine.renderPlanTemplate(promptData);
@@ -149,8 +153,8 @@ export class PlanGenerator {
       let content = '';
       try {
         const raw = fs.readFileSync(file.path, 'utf-8');
-        // Truncate large files to keep prompt manageable
-        content = raw.length > 3000 ? raw.slice(0, 3000) + '\n// ... (truncated)' : raw;
+        const maxSize = 5000;
+        content = raw.length > maxSize ? raw.slice(0, maxSize) + '\n// ... (truncated)' : raw;
       } catch {
         content = '// (unable to read file)';
       }
@@ -194,6 +198,61 @@ export class PlanGenerator {
     }
 
     return parts.join('\n');
+  }
+
+  /**
+   * Refine an existing plan based on user feedback.
+   * Sends the current plan + feedback to the LLM and returns an updated plan.
+   */
+  async refine(existingPlan: Plan, query: string, feedback: string): Promise<Plan> {
+    this.logger.info(`Refining plan for: ${query}`);
+
+    const currentPlanMarkdown = this.formatPlanAsMarkdown(existingPlan);
+
+    const prompt = `You are refining an existing implementation plan based on user feedback.
+
+## Original Query
+${query}
+
+## Current Plan
+${currentPlanMarkdown}
+
+## Refinement Feedback
+${feedback}
+
+## Instructions
+Based on the feedback above, produce an updated plan. Keep the same format:
+- Use numbered steps with titles and descriptions
+- Include file paths where relevant
+- Preserve steps that don't need changes
+- Add, remove, or modify steps as needed
+- Include an updated rationale if appropriate`;
+
+    const stepOptions = this.llmService.getStepOptions('planning');
+    const response = await this.llmService.complete(prompt, {
+      ...stepOptions,
+      maxTokens: stepOptions.maxTokens ?? 4096,
+    });
+
+    this.logger.info('LLM response received, parsing refined plan...');
+    const refinedPlan = this.parsePlanResponse(response.content, query);
+
+    return refinedPlan;
+  }
+
+  private formatPlanAsMarkdown(plan: Plan): string {
+    const lines: string[] = [];
+    lines.push(`## Rationale\n${plan.rationale || 'None'}\n`);
+    lines.push(`## Steps\n`);
+    plan.steps.forEach((step, i) => {
+      lines.push(`${i + 1}. **${step.title}**`);
+      lines.push(`   ${step.description}`);
+      if (step.files.length > 0) {
+        lines.push(`   Files: ${step.files.join(', ')}`);
+      }
+      lines.push('');
+    });
+    return lines.join('\n');
   }
 
   // ─── Plan Parsing ──────────────────────────────────────────────────────

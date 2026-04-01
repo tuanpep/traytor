@@ -1,6 +1,6 @@
-# Contributing to SDD
+# Contributing to Traytor
 
-Thank you for your interest in contributing to SDD! This guide covers how to set up the development environment and contribute code.
+Thank you for your interest in contributing to Traytor! This guide covers how to set up the development environment and contribute code.
 
 ## Development Setup
 
@@ -15,7 +15,7 @@ Thank you for your interest in contributing to SDD! This guide covers how to set
 
 ```bash
 # Clone the repository
-git clone <repo-url> && cd traytor
+git clone https://github.com/tuanpep/traytor.git && cd traytor
 
 # Install dependencies
 pnpm install
@@ -66,12 +66,12 @@ tests/           Unit and integration tests
 - Follow existing code patterns and conventions
 - Use ES module imports (`.js` extension in import paths)
 - Use `chalk` for CLI output formatting
-- Use `SDDError` and its subclasses for error handling with actionable suggestions
+- Use `TraytorError` and its subclasses for error handling with actionable suggestions
 
 ## Adding a New Command
 
 1. Create a command handler in `src/commands/`
-2. Register the command in `src/bin/sdd.ts`
+2. Register the command in `src/bin/traytor.ts`
 3. Add corresponding service methods if needed
 4. Add tests in `tests/`
 5. Update this README if the command changes user-facing behavior
@@ -88,7 +88,7 @@ pnpm test
 pnpm test tests/unit/my-test.test.ts
 
 # Run tests in watch mode
-pnpm test -- --watch
+pnpm test:watch
 ```
 
 ## Commit Messages
@@ -111,4 +111,4 @@ When reporting issues, please include:
 - Operating system
 - Steps to reproduce
 - Expected vs actual behavior
-- Relevant log output (use `sdd <command> -v` for verbose output)
+- Relevant log output (use `traytor <command> -v` for verbose output)

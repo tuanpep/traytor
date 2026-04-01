@@ -28,7 +28,10 @@ export class TaskRepository {
     return this.storage.delete(taskId);
   }
 
-  async addExecution(taskId: string, execution: Omit<TaskExecution, 'id' | 'timestamp'>): Promise<Task> {
+  async addExecution(
+    taskId: string,
+    execution: Omit<TaskExecution, 'id' | 'timestamp'>
+  ): Promise<Task> {
     const task = await this.findById(taskId);
     if (!task) {
       throw new Error(`Task "${taskId}" not found`);

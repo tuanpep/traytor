@@ -143,8 +143,18 @@ describe('buildContextCarryOver', () => {
         plan: {
           id: 'plan_1',
           steps: [
-            { id: 's1', title: 'Create models', description: 'Create data models', files: ['src/models/user.ts', 'src/models/post.ts'] },
-            { id: 's2', title: 'Create routes', description: 'Create API routes', files: ['src/routes/api.ts'] },
+            {
+              id: 's1',
+              title: 'Create models',
+              description: 'Create data models',
+              files: ['src/models/user.ts', 'src/models/post.ts'],
+            },
+            {
+              id: 's2',
+              title: 'Create routes',
+              description: 'Create API routes',
+              files: ['src/routes/api.ts'],
+            },
           ],
           rationale: 'Backend first approach',
           iterations: [],
@@ -173,7 +183,12 @@ describe('buildContextCarryOver', () => {
         plan: {
           id: 'plan_1',
           steps: [
-            { id: 's1', title: 'Step 1', description: 'Create shared types', files: ['src/types.ts'] },
+            {
+              id: 's1',
+              title: 'Step 1',
+              description: 'Create shared types',
+              files: ['src/types.ts'],
+            },
           ],
           rationale: 'Types first',
           iterations: [],
@@ -190,7 +205,12 @@ describe('buildContextCarryOver', () => {
         plan: {
           id: 'plan_2',
           steps: [
-            { id: 's2', title: 'Step 2', description: 'Update types', files: ['src/types.ts', 'src/utils.ts'] },
+            {
+              id: 's2',
+              title: 'Step 2',
+              description: 'Update types',
+              files: ['src/types.ts', 'src/utils.ts'],
+            },
           ],
           rationale: 'Utils second',
           iterations: [],

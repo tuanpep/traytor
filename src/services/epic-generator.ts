@@ -91,14 +91,26 @@ export class EpicGenerator {
 
     const questions = this.parseQuestions(response.content);
 
+    if (questions.length === 0) {
+      this.logger.warn('LLM returned no structured questions, treating as requirements understood');
+      return {
+        query,
+        round: 1,
+        maxRounds,
+        questions: [],
+        responses: [],
+        complete: true,
+        summary: response.content,
+      };
+    }
+
     return {
       query,
       round: 1,
       maxRounds,
       questions,
       responses: [],
-      complete: questions.length === 0,
-      summary: questions.length === 0 ? response.content : undefined,
+      complete: false,
     };
   }
 
@@ -426,6 +438,14 @@ Respond in markdown format.`;
         })
       );
 
+      if (questions.length === 0) {
+        this.logger.warn('LLM returned empty questions array, marking elicitation as complete');
+        return {
+          type: 'complete',
+          summary: 'Requirements elicitation completed with no further questions.',
+        };
+      }
+
       return { type: 'questions', questions };
     } catch {
       this.logger.warn('Failed to parse follow-up elicitation response');
@@ -523,10 +543,19 @@ Respond in markdown format.`;
     return criteria;
   }
 
-  private extractLinkedSpecs(_block: string): string[] {
-    // Specs are linked by ID after creation; parse any explicit references
-    void _block;
-    return [];
+  private extractLinkedSpecs(block: string): string[] {
+    const specIds: string[] = [];
+    const specIdPattern = /spec_\d+_\w{6}/g;
+    let match: RegExpExecArray | null;
+
+    while ((match = specIdPattern.exec(block)) !== null) {
+      const specId = match[0];
+      if (specId && !specIds.includes(specId)) {
+        specIds.push(specId);
+      }
+    }
+
+    return specIds;
   }
 
   private parseWorkflow(content: string): Workflow {

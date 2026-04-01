@@ -2,7 +2,11 @@ import chalk from 'chalk';
 import type { Plan } from '../../models/plan.js';
 import type { Task } from '../../models/task.js';
 import type { Phase, PhaseStatus } from '../../models/phase.js';
-import type { Verification, VerificationComment, VerificationCategory } from '../../models/verification.js';
+import type {
+  Verification,
+  VerificationComment,
+  VerificationCategory,
+} from '../../models/verification.js';
 import type { Review, ReviewComment, ReviewCategory, ReviewSeverity } from '../../models/review.js';
 import type { Epic, Spec, Ticket, TicketStatus, SpecType } from '../../models/epic.js';
 
@@ -220,7 +224,9 @@ export function formatPhase(phase: Phase): string {
   const icon = PHASE_STATUS_ICONS[phase.status];
 
   const lines: string[] = [];
-  lines.push(`${color(icon)} ${chalk.bold(`Phase ${phase.order}: ${phase.name}`)} ${color(`[${phase.status}]`)}`);
+  lines.push(
+    `${color(icon)} ${chalk.bold(`Phase ${phase.order}: ${phase.name}`)} ${color(`[${phase.status}]`)}`
+  );
   lines.push(chalk.dim(`  ID: ${phase.id}`));
 
   if (phase.description) {
@@ -243,7 +249,9 @@ export function formatPhase(phase: Phase): string {
     if (critCount === 0 && majCount === 0) {
       lines.push(chalk.green('  Verification: APPROVED'));
     } else {
-      lines.push(chalk.red(`  Verification: NEEDS_CHANGES (${critCount} critical, ${majCount} major)`));
+      lines.push(
+        chalk.red(`  Verification: NEEDS_CHANGES (${critCount} critical, ${majCount} major)`)
+      );
     }
   }
 
@@ -267,7 +275,11 @@ export function formatPhases(phases: Phase[]): string {
   const pending = phases.filter((p) => p.status === 'pending').length;
   const blocked = phases.filter((p) => p.status === 'blocked').length;
 
-  lines.push(chalk.dim(`Progress: ${completed}/${phases.length} completed, ${inProgress} in progress, ${pending} pending, ${blocked} blocked`));
+  lines.push(
+    chalk.dim(
+      `Progress: ${completed}/${phases.length} completed, ${inProgress} in progress, ${pending} pending, ${blocked} blocked`
+    )
+  );
 
   return lines.join('\n');
 }
@@ -329,7 +341,9 @@ export function formatReview(review: Review): string {
           ? `${chalk.cyan(comment.file)}:${chalk.dim(String(comment.line))}`
           : chalk.cyan(comment.file)
         : '';
-      lines.push(`  ${color(icon)} [${severityColor(comment.severity.toUpperCase())}] ${comment.message}`);
+      lines.push(
+        `  ${color(icon)} [${severityColor(comment.severity.toUpperCase())}] ${comment.message}`
+      );
       if (location) {
         lines.push(chalk.dim(`    Location: ${location}`));
       }
@@ -385,9 +399,11 @@ export function formatReviewSummary(review: Review): string {
 
   // Overall assessment
   const assessmentColor =
-    overallAssessment === 'APPROVED' ? chalk.green.bold :
-    overallAssessment === 'HAS_CONCERNS' ? chalk.yellow.bold :
-    chalk.red.bold;
+    overallAssessment === 'APPROVED'
+      ? chalk.green.bold
+      : overallAssessment === 'HAS_CONCERNS'
+        ? chalk.yellow.bold
+        : chalk.red.bold;
   lines.push(assessmentColor(`\nResult: ${overallAssessment}`));
 
   // Key findings
@@ -513,7 +529,9 @@ export function formatTicketList(tickets: Ticket[]): string {
   const inProgress = tickets.filter((t) => t.status === 'in_progress').length;
   const done = tickets.filter((t) => t.status === 'done').length;
 
-  lines.push(chalk.dim(`Progress: ${done}/${tickets.length} done, ${inProgress} in progress, ${todo} todo`));
+  lines.push(
+    chalk.dim(`Progress: ${done}/${tickets.length} done, ${inProgress} in progress, ${todo} todo`)
+  );
 
   return lines.join('\n');
 }
@@ -557,7 +575,11 @@ export function formatEpic(epic: Epic): string {
     const todo = epic.tickets.filter((t) => t.status === 'todo').length;
     const inProgress = epic.tickets.filter((t) => t.status === 'in_progress').length;
     const done = epic.tickets.filter((t) => t.status === 'done').length;
-    lines.push(chalk.dim(`Progress: ${done}/${epic.tickets.length} done, ${inProgress} in progress, ${todo} todo`));
+    lines.push(
+      chalk.dim(
+        `Progress: ${done}/${epic.tickets.length} done, ${inProgress} in progress, ${todo} todo`
+      )
+    );
   }
 
   return lines.join('\n');
@@ -618,7 +640,9 @@ export function formatReviewMarkdown(review: Review): string {
     const categoryComments = grouped.get(category);
     if (!categoryComments || categoryComments.length === 0) continue;
 
-    lines.push(`### ${category.charAt(0).toUpperCase() + category.slice(1)} (${categoryComments.length})`);
+    lines.push(
+      `### ${category.charAt(0).toUpperCase() + category.slice(1)} (${categoryComments.length})`
+    );
     lines.push('');
 
     for (const comment of categoryComments) {

@@ -107,12 +107,15 @@ describe('ContextManager', () => {
     });
 
     it('parses AGENTS.md directives correctly', () => {
-      createFile('AGENTS.md', `# Project Rules
+      createFile(
+        'AGENTS.md',
+        `# Project Rules
 - Always use TypeScript strict mode
 - Never use any
 - Prefer const over let
 - Use pnpm for package management
-`);
+`
+      );
 
       const result = contextManager.findAgentsMd(tmpDir);
       expect(result).not.toBeNull();

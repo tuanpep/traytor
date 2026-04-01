@@ -43,8 +43,8 @@ export async function bootstrap(workingDir = process.cwd()): Promise<AppContext>
   const mcpClient = new MCPClient();
 
   // Resolve custom template directory from config or project .traytor/templates
-  const customTemplateDir = config.templates.customDir
-    ?? path.join(workingDir, '.traytor', 'templates');
+  const customTemplateDir =
+    config.templates.customDir ?? path.join(workingDir, '.traytor', 'templates');
 
   const templateEngine = new TemplateEngine(customTemplateDir);
   const planGenerator = new PlanGenerator(llmService, templateEngine, workingDir);
@@ -61,5 +61,21 @@ export async function bootstrap(workingDir = process.cwd()): Promise<AppContext>
   const taskService = new TaskService(taskRepository, planGenerator);
   taskService.setPhaseGenerator(phaseGenerator);
 
-  return { taskService, configLoader, config, llmService, mcpClient, planGenerator, phaseGenerator, reviewGenerator, templateEngine, agentService, verifier, epicService, epicGenerator, gitService, workflowEngine };
+  return {
+    taskService,
+    configLoader,
+    config,
+    llmService,
+    mcpClient,
+    planGenerator,
+    phaseGenerator,
+    reviewGenerator,
+    templateEngine,
+    agentService,
+    verifier,
+    epicService,
+    epicGenerator,
+    gitService,
+    workflowEngine,
+  };
 }

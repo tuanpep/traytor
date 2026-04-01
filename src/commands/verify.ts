@@ -249,7 +249,7 @@ async function runVerificationFix(
   options: VerifyCommandOptions
 ): Promise<void> {
   const severityFilter = options.severity?.split(',').map((s) => s.trim()) ?? ['critical', 'major'];
-  const fixService = new VerificationFixService(agentService, workingDir);
+  const fixService = new VerificationFixService(agentService, workingDir, verifier);
 
   // First run verification if not already done
   let verification = task.verification;

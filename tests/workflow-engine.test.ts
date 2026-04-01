@@ -86,7 +86,16 @@ describe('WorkflowEngine', () => {
       const definition = {
         name: 'default',
         description: 'Duplicate',
-        steps: [{ id: 'wf_step_def_1', name: 'Step', description: '', order: 1, command: 'plan' as const, required: true }],
+        steps: [
+          {
+            id: 'wf_step_def_1',
+            name: 'Step',
+            description: '',
+            order: 1,
+            command: 'plan' as const,
+            required: true,
+          },
+        ],
       };
 
       await expect(engine.createWorkflow(definition)).rejects.toThrow(WorkflowError);
@@ -106,7 +115,16 @@ describe('WorkflowEngine', () => {
       const definition = {
         name: '',
         description: 'No name',
-        steps: [{ id: 'wf_step_def_1', name: 'Step', description: '', order: 1, command: 'plan' as const, required: true }],
+        steps: [
+          {
+            id: 'wf_step_def_1',
+            name: 'Step',
+            description: '',
+            order: 1,
+            command: 'plan' as const,
+            required: true,
+          },
+        ],
       };
 
       await expect(engine.createWorkflow(definition)).rejects.toThrow(WorkflowError);
@@ -190,9 +208,30 @@ describe('WorkflowEngine', () => {
       await engine.createWorkflow({
         name: 'with-optional',
         steps: [
-          { id: 'wf_step_def_1', name: 'Required', description: '', order: 1, command: 'plan', required: true },
-          { id: 'wf_step_def_2', name: 'Optional', description: '', order: 2, command: 'exec', required: false },
-          { id: 'wf_step_def_3', name: 'Final', description: '', order: 3, command: 'complete', required: true },
+          {
+            id: 'wf_step_def_1',
+            name: 'Required',
+            description: '',
+            order: 1,
+            command: 'plan',
+            required: true,
+          },
+          {
+            id: 'wf_step_def_2',
+            name: 'Optional',
+            description: '',
+            order: 2,
+            command: 'exec',
+            required: false,
+          },
+          {
+            id: 'wf_step_def_3',
+            name: 'Final',
+            description: '',
+            order: 3,
+            command: 'complete',
+            required: true,
+          },
         ],
       });
 

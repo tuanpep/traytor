@@ -14,10 +14,7 @@ import {
   formatTicketList,
 } from '../ui/cli/formatter.js';
 import { getLogger } from '../utils/logger.js';
-import {
-  TaskNotFoundError,
-  EpicNotFoundError,
-} from '../utils/errors.js';
+import { TaskNotFoundError, EpicNotFoundError } from '../utils/errors.js';
 
 // ─── Epic Command (main entry) ────────────────────────────────────────────
 
@@ -186,7 +183,9 @@ export async function runEpicCommand(
 
     await epicService.setWorkflow(task.id, workflow);
 
-    workflowSpinner.succeed(chalk.green(`Workflow "${workflow.name}" created with ${workflow.steps.length} steps!`));
+    workflowSpinner.succeed(
+      chalk.green(`Workflow "${workflow.name}" created with ${workflow.steps.length} steps!`)
+    );
   } catch (error) {
     workflowSpinner.fail(chalk.red('Failed to generate workflow'));
     throw error;
@@ -237,15 +236,16 @@ export async function runEpicCommand(
   console.log(chalk.dim(`  traytor epic spec list ${task.id}    # List all specs`));
   console.log(chalk.dim(`  traytor epic spec create ${task.id}  # Add a new spec`));
   console.log(chalk.dim(`  traytor epic ticket list ${task.id}  # List all tickets`));
-  console.log(chalk.dim(`  traytor epic ticket status ${task.id} <ticket-id> <status>  # Update ticket status`));
+  console.log(
+    chalk.dim(
+      `  traytor epic ticket status ${task.id} <ticket-id> <status>  # Update ticket status`
+    )
+  );
 }
 
 // ─── Spec Sub-commands ────────────────────────────────────────────────────
 
-export async function runSpecListCommand(
-  epicService: EpicService,
-  taskId: string
-): Promise<void> {
+export async function runSpecListCommand(epicService: EpicService, taskId: string): Promise<void> {
   try {
     const specs = await epicService.listSpecs(taskId);
     if (specs.length === 0) {
@@ -276,9 +276,7 @@ export async function runSpecCreateCommand(
 
     // Prompt for missing fields
     if (!finalTitle) {
-      const { t } = await inquirer.prompt([
-        { type: 'input', name: 't', message: 'Spec title:' },
-      ]);
+      const { t } = await inquirer.prompt([{ type: 'input', name: 't', message: 'Spec title:' }]);
       finalTitle = t;
     }
 
@@ -367,9 +365,7 @@ export async function runTicketCreateCommand(
     let acceptanceCriteria: string[] = [];
 
     if (!finalTitle) {
-      const { t } = await inquirer.prompt([
-        { type: 'input', name: 't', message: 'Ticket title:' },
-      ]);
+      const { t } = await inquirer.prompt([{ type: 'input', name: 't', message: 'Ticket title:' }]);
       finalTitle = t;
     }
 
@@ -389,7 +385,10 @@ export async function runTicketCreateCommand(
       },
     ]);
     if (ac.trim()) {
-      acceptanceCriteria = ac.split(',').map((s: string) => s.trim()).filter(Boolean);
+      acceptanceCriteria = ac
+        .split(',')
+        .map((s: string) => s.trim())
+        .filter(Boolean);
     }
 
     const ticket = await epicService.addTicket(taskId, {
@@ -425,11 +424,7 @@ export async function runTicketStatusCommand(
   }
 
   try {
-    const ticket = await epicService.updateTicketStatus(
-      taskId,
-      ticketId,
-      status as TicketStatus
-    );
+    const ticket = await epicService.updateTicketStatus(taskId, ticketId, status as TicketStatus);
     console.log(chalk.green(`Ticket ${ticketId} status updated to: ${status}`));
     console.log(formatTicket(ticket));
   } catch (error) {

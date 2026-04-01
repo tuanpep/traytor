@@ -1,13 +1,39 @@
 # Traytor — Spec-Driven Development CLI
 
+[![CI](https://github.com/tuanpep/traytor/actions/workflows/ci.yml/badge.svg)](https://github.com/tuanpep/traytor/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/traytor.svg)](https://www.npmjs.com/package/traytor)
+[![license](https://img.shields.io/npm/l/traytor.svg)](https://github.com/tuanpep/traytor/blob/main/LICENSE)
+[![node](https://img.shields.io/node/v/traytor.svg)](https://nodejs.org)
+
 A spec-driven development CLI tool that leverages AI (Anthropic Claude, OpenAI) to generate implementation plans, execute tasks with AI agents, verify code against plans, and manage multi-phase projects through epics and workflows.
+
+## Features
+
+- **Plan Generation**: AI-powered implementation plans with file analysis and context gathering
+- **Task Execution**: Run AI agents (Claude Code, Codex, or custom CLI) against plans
+- **Verification**: Compare implementations against plans using LLM analysis
+- **Code Review**: Agentic code review with fix suggestions
+- **Phase Management**: Break complex tasks into sequential phases
+- **Epic Management**: AI-guided elicitation for epics with specs and tickets
+- **Workflow Engine**: State machine for multi-step development workflows
+- **VS Code Extension**: IDE integration with task management sidebar
 
 ## Installation
 
+### From npm (Recommended)
+
 ```bash
 npm install -g traytor
-# or
-pnpm add -g traytor
+```
+
+### From Source
+
+```bash
+git clone https://github.com/tuanpep/traytor.git
+cd traytor
+pnpm install
+pnpm build
+pnpm dev hello  # Verify installation
 ```
 
 ## Quick Start
@@ -25,10 +51,10 @@ export OPENAI_API_KEY="sk-..."
 export TRAYTOR_PROVIDER="openai"
 ```
 
-Or use the config command:
+Or use the interactive setup wizard:
 
 ```bash
-traytor config set-key anthropic sk-ant-...
+traytor setup
 ```
 
 ### 2. Generate a Plan
@@ -53,6 +79,7 @@ traytor verify <task-id>
 
 | Command                                | Description                                                          |
 | -------------------------------------- | -------------------------------------------------------------------- |
+| `traytor setup`                        | Interactive setup wizard for first-time configuration                |
 | `traytor plan <query>`                 | Generate an implementation plan for a task                           |
 | `traytor exec <task-id>`               | Execute a task with an AI agent                                      |
 | `traytor verify <task-id>`             | Verify a task implementation against its plan                        |
@@ -184,7 +211,11 @@ A companion VS Code extension provides IDE integration:
 - **Sidebar**: Task list with real-time status updates
 - **Output Channel**: Execution logs
 
-Install from the `extension/` directory:
+### Install from Marketplace
+
+Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=tuanpep.traytor-vscode).
+
+### Install from Source
 
 ```bash
 cd extension && pnpm install && pnpm build
@@ -203,6 +234,8 @@ The project follows a layered architecture:
 - **Data Layer** (`src/data/`): Repositories, storage, validation
 - **Utils** (`src/utils/`): Logger, errors, platform utilities, secure storage
 
+See [CLAUDE.md](CLAUDE.md) for detailed architecture documentation.
+
 ## Development
 
 ```bash
@@ -213,7 +246,7 @@ pnpm install
 pnpm build
 
 # Run in dev mode
-pnpm dev
+pnpm dev hello
 
 # Run tests
 pnpm test
@@ -223,8 +256,15 @@ pnpm typecheck
 
 # Lint
 pnpm lint
+
+# Format code
+pnpm format
 ```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, coding standards, and how to contribute.
 
 ## License
 
-ISC
+ISC — See [LICENSE](LICENSE) for details.

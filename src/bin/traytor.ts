@@ -6,6 +6,7 @@ import { initLogger, getLogger } from '../utils/logger.js';
 import { TraytorError, ErrorCode } from '../utils/errors.js';
 import { bootstrap, type AppContext } from '../app/bootstrap.js';
 import { runPlanCommand } from '../commands/plan.js';
+import { runPlanRefineCommand } from '../commands/plan-refine.js';
 import { runExecCommand } from '../commands/exec.js';
 import { runVerifyCommand } from '../commands/verify.js';
 import { runHistoryCommand } from '../commands/history.js';
@@ -58,8 +59,11 @@ import {
   runTicketStatusCommand,
   runTicketEditCommand,
 } from '../commands/epic.js';
+import { runDoctorCommand } from '../commands/doctor.js';
+import { runTaskListCommand, runTaskShowCommand } from '../commands/task.js';
 import { runHelpCommand } from '../commands/help.js';
 import { runTUICommand } from '../commands/tui.js';
+import { runSetupCommand } from '../commands/setup.js';
 import { resolveVersion } from '../utils/version.js';
 
 const pkgVersion = resolveVersion();
@@ -73,33 +77,54 @@ program
 
 program
   .command('hello')
-  .description('Test command to verify the CLI is working')
-  .option('-v, --verbose', 'Show verbose output')
+  .description('(deprecated) Use `traytor doctor` instead')
+  .action(async () => {
+    console.log(chalk.yellow('  `traytor hello` is deprecated. Use `traytor doctor` instead.'));
+    console.log('');
+    try {
+      const ctx = await getContext();
+      initLogger({ level: 'info' });
+      await runDoctorCommand(ctx.config);
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+// ─── Doctor Command ──────────────────────────────────────────────────────
+
+program
+  .command('doctor')
+  .description('Check Traytor installation health and configuration')
+  .option('-v, --verbose', 'Show detailed output')
   .action(async (opts) => {
     try {
       const ctx = await getContext();
-      const logLevel = opts.verbose ? 'debug' : ctx.config.logLevel;
-      initLogger({ level: logLevel });
+      initLogger({ level: opts.verbose ? 'debug' : 'info' });
+      await runDoctorCommand(ctx.config, { verbose: opts.verbose });
+    } catch (err) {
+      handleError(err);
+    }
+  });
 
-      const logger = getLogger();
-      logger.debug('Verbose mode enabled');
-      logger.info('Traytor is running!');
+// ─── Setup Command ──────────────────────────────────────────────────────────
 
-      console.log('');
-      const currentModel =
-        ctx.config.provider === 'anthropic' ? ctx.config.anthropic.model : ctx.config.openai.model;
-      console.log('  Configuration loaded successfully:');
-      console.log(`    Provider:   ${ctx.config.provider}`);
-      console.log(`    Model:      ${currentModel}`);
-      if (ctx.config.openai.baseURL) {
-        console.log(`    Base URL:   ${ctx.config.openai.baseURL}`);
-      }
-      console.log(`    Data dir:   ${ctx.config.dataDir}`);
-      console.log(`    Log level:  ${ctx.config.logLevel}`);
-      console.log(`    Agents:     ${ctx.config.agents.length} configured`);
-      console.log('');
-      console.log('  Everything is working correctly.');
-      console.log('');
+program
+  .command('setup')
+  .alias('init')
+  .description('Interactive setup wizard to configure traytor')
+  .option('--provider <provider>', 'Provider: anthropic, openai, openai-compatible')
+  .option('--api-key <key>', 'API key for the provider')
+  .option('--project', 'Create project-level config in .traytor/')
+  .option('-v, --verbose', 'Show verbose output')
+  .action(async (opts) => {
+    try {
+      initLogger({ level: opts.verbose ? 'debug' : 'info' });
+
+      await runSetupCommand({
+        provider: opts.provider,
+        apiKey: opts.apiKey,
+        project: opts.project,
+      });
     } catch (err) {
       handleError(err);
     }
@@ -115,6 +140,10 @@ program
   .option('-f, --files <files...>', 'Specific files to include in analysis')
   .option('-o, --output <format>', 'Output format: terminal, clipboard, markdown, json', 'terminal')
   .option('--output-file <path>', 'Write output to a file (for markdown/json)')
+  .option(
+    '--diff <target>',
+    'Include git diff context: uncommitted, main, branch:<name>, commit:<hash>'
+  )
   .option('-v, --verbose', 'Show verbose output')
   .action(async (query: string, opts) => {
     try {
@@ -125,6 +154,51 @@ program
       await runPlanCommand(ctx.taskService, query, {
         files: opts.files,
         output: opts.output,
+        outputFile: opts.outputFile,
+        diff: opts.diff,
+      });
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+// ─── Plan Refine Command ──────────────────────────────────────────────────
+
+program
+  .command('plan:refine')
+  .description('Refine an existing plan based on feedback')
+  .argument('<task-id>', 'Task ID with an existing plan')
+  .argument('[feedback]', 'Refinement feedback (omit for interactive input)')
+  .option('-o, --output <format>', 'Output format: terminal, markdown, json', 'terminal')
+  .option('--output-file <path>', 'Write output to a file')
+  .option('-v, --verbose', 'Show verbose output')
+  .action(async (taskId: string, feedback: string | undefined, opts) => {
+    try {
+      const ctx = await getContext();
+      const logLevel = opts.verbose ? 'debug' : ctx.config.logLevel;
+      initLogger({ level: logLevel });
+
+      // If no feedback provided, read from stdin or prompt
+      let refineFeedback = feedback;
+      if (!refineFeedback) {
+        if (!process.stdin.isTTY) {
+          // Read from pipe
+          const chunks: Buffer[] = [];
+          for await (const chunk of process.stdin) {
+            chunks.push(chunk);
+          }
+          refineFeedback = Buffer.concat(chunks).toString('utf-8').trim();
+        }
+        if (!refineFeedback) {
+          console.error(chalk.red('Refinement feedback is required.'));
+          console.log(chalk.dim('Usage: traytor plan:refine <task-id> "your feedback"'));
+          console.log(chalk.dim('       echo "feedback" | traytor plan:refine <task-id>'));
+          process.exit(1);
+        }
+      }
+
+      await runPlanRefineCommand(ctx.taskService, taskId, refineFeedback, {
+        output: opts.output as 'terminal' | 'markdown' | 'json',
         outputFile: opts.outputFile,
       });
     } catch (err) {
@@ -325,6 +399,7 @@ program
   .option('--phase <n>', 'Execute a specific phase (for phases tasks)', parseInt)
   .option('--agent <name>', 'Use a specific agent by name')
   .option('--template <name>', 'Use a specific template by name')
+  .option('--safe-mode', 'Run agent without --dangerously-skip-permissions')
   .option('-v, --verbose', 'Show verbose output')
   .action(async (taskId: string, opts) => {
     try {
@@ -338,6 +413,7 @@ program
         phase: opts.phase,
         agent: opts.agent,
         template: opts.template,
+        safeMode: opts.safeMode,
       });
     } catch (err) {
       handleError(err);
@@ -448,6 +524,52 @@ program
         type: opts.type,
         limit: opts.limit,
       });
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+// ─── Task Command ──────────────────────────────────────────────────────────
+
+program
+  .command('task')
+  .description('Manage tasks (list and show details)')
+  .argument('<subcommand>', 'Subcommand: list, show')
+  .argument('[id]', 'Task ID (for show)')
+  .option('--status <status>', 'Filter by status (for list)')
+  .option('--type <type>', 'Filter by type (for list)')
+  .option('--limit <n>', 'Limit results (for list)', parseInt)
+  .option('-o, --output <format>', 'Output format: terminal, json', 'terminal')
+  .action(async (subcommand: string, id: string | undefined, opts) => {
+    try {
+      const ctx = await getContext();
+      initLogger({ level: ctx.config.logLevel });
+
+      switch (subcommand) {
+        case 'list':
+          await runTaskListCommand(ctx.taskService, {
+            status: opts.status,
+            type: opts.type,
+            limit: opts.limit,
+            output: opts.output as 'terminal' | 'json',
+          });
+          break;
+        case 'show': {
+          if (!id) {
+            console.error(chalk.red('Task ID is required for show.'));
+            console.log(chalk.dim('Usage: traytor task show <task-id>'));
+            process.exit(1);
+          }
+          await runTaskShowCommand(ctx.taskService, id, {
+            output: opts.output as 'terminal' | 'json',
+          });
+          break;
+        }
+        default:
+          console.error(chalk.red(`Unknown subcommand: ${subcommand}`));
+          console.log(chalk.dim('Available subcommands: list, show'));
+          process.exit(1);
+      }
     } catch (err) {
       handleError(err);
     }
@@ -1022,13 +1144,22 @@ program
     try {
       initLogger({ level: 'info' });
 
-      const { runConfigCommand, runConfigSetKey, runConfigGetKey, runConfigRemoveKey } =
-        await import('../commands/config.js');
+      const {
+        runConfigCommand,
+        runConfigSetKey,
+        runConfigGetKey,
+        runConfigRemoveKey,
+        runConfigSwitch,
+      } = await import('../commands/config.js');
 
       switch (subcommand) {
         case 'show': {
           const ctx = await getContext();
           runConfigCommand(ctx.config);
+          break;
+        }
+        case 'switch': {
+          await runConfigSwitch();
           break;
         }
         case 'set-key': {
@@ -1161,6 +1292,10 @@ const ERROR_EXIT_CODES: Record<ErrorCode, number> = {
   [ErrorCode.WORKFLOW_NOT_FOUND]: 51,
   [ErrorCode.WORKFLOW_STATE_ERROR]: 52,
   [ErrorCode.REVIEW_FAILED]: 60,
+  [ErrorCode.MCP_CONNECTION_ERROR]: 70,
+  [ErrorCode.MCP_TOOL_ERROR]: 71,
+  [ErrorCode.CONFIG_VALIDATION_ERROR]: 72,
+  [ErrorCode.AGENT_TIMEOUT]: 73,
 };
 
 function handleError(err: unknown): void {

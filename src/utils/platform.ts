@@ -68,7 +68,10 @@ export function isKeychainAvailable(): boolean {
     }
     if (isLinux()) {
       // Check for secret-service (via dbus)
-      execSync('dbus-send --session --dest=org.freedesktop.DBus --type=method_call --print-reply /org/freedesktop/DBus org.freedesktop.DBus.ListNames 2>/dev/null | grep -q secret-service', { stdio: 'pipe' });
+      execSync(
+        'dbus-send --session --dest=org.freedesktop.DBus --type=method_call --print-reply /org/freedesktop/DBus org.freedesktop.DBus.ListNames 2>/dev/null | grep -q secret-service',
+        { stdio: 'pipe' }
+      );
       return true;
     }
     if (isWindows()) {
