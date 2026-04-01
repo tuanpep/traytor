@@ -151,7 +151,7 @@ export class ContextManager {
       // Track section headings
       const headingMatch = trimmed.match(/^#{1,4}\s+(.+)/);
       if (headingMatch) {
-        currentSection = headingMatch[1].trim().toLowerCase();
+        currentSection = headingMatch[1]!.trim().toLowerCase();
         continue;
       }
 

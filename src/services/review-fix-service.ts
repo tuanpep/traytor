@@ -1,5 +1,9 @@
 import chalk from 'chalk';
 import { getLogger } from '../utils/logger.js';
+import { safeFilterArray } from '../utils/safe-access.js';
+import { buildCommentBlock, buildInstructionsList, buildContextBlock } from '../utils/prompt-builder.js';
+import { validateFilePath } from '../utils/validation.js';
+import { TemplateError } from '../utils/errors.js';
 import type { Review } from '../models/review.js';
 import type { Task } from '../models/task.js';
 import type { AgentService } from './agent-service.js';
@@ -19,11 +23,14 @@ export interface ReviewFixAllResult {
 
 export class ReviewFixService {
   private logger = getLogger();
+  private readonly safeWorkingDir: string;
 
   constructor(
     private readonly agentService: AgentService,
-    private readonly workingDir: string
-  ) {}
+    workingDir: string
+  ) {
+    this.safeWorkingDir = validateFilePath(workingDir);
+  }
 
   generateFixPrompt(
     review: Review,
@@ -31,7 +38,7 @@ export class ReviewFixService {
     options?: { onlyBlocking?: boolean; severityFilter?: string[] }
   ): string {
     const severityOrder = ['critical', 'major', 'minor'];
-    let filteredComments = [...(review.comments ?? [])];
+    let filteredComments = safeFilterArray(review.comments);
 
     if (commentIds && commentIds.length > 0) {
       filteredComments = filteredComments.filter((c) => commentIds.includes(c.id));
@@ -61,34 +68,30 @@ export class ReviewFixService {
     prompt += `Please address the following issues found during code review:\n\n`;
 
     for (let i = 0; i < filteredComments.length; i++) {
-      const comment = filteredComments[i];
-      const prefix = `[${i + 1}]`;
-      const severityTag = `[${comment.severity.toUpperCase()}]`;
-      const categoryTag = `[${comment.category.toUpperCase()}]`;
-
-      prompt += `${prefix} ${severityTag} ${categoryTag} `;
-      if (comment.file) {
-        prompt += `${comment.file}`;
-        if (comment.line) {
-          prompt += `:${comment.line}`;
-        }
-        prompt += '\n';
-      }
-      prompt += `   ${comment.message}\n`;
-      if (comment.suggestion) {
-        prompt += `   Suggested fix: ${comment.suggestion}\n`;
-      }
+      const comment = filteredComments[i]!;
+      prompt += buildCommentBlock(
+        i + 1,
+        comment.severity,
+        comment.category,
+        comment.file,
+        comment.line,
+        comment.message,
+        comment.suggestion
+      );
       prompt += '\n';
     }
 
     prompt += `## Instructions\n\n`;
-    prompt += `1. Address each comment in order of severity (critical → major → minor)\n`;
-    prompt += `2. For each issue, make the necessary code changes\n`;
-    prompt += `3. Focus on the most severe issues first\n`;
-    prompt += `4. After making changes, verify that the fix addresses the original concern\n`;
-    prompt += `5. Do NOT introduce new issues while fixing existing ones\n\n`;
+    prompt += buildInstructionsList([
+      'Address each comment in order of severity (critical → major → minor)',
+      'For each issue, make the necessary code changes',
+      'Focus on the most severe issues first',
+      'After making changes, verify that the fix addresses the original concern',
+      'Do NOT introduce new issues while fixing existing ones',
+    ]);
+    prompt += '\n\n';
     prompt += `## Context\n\n`;
-    prompt += `Working directory: ${this.workingDir}\n`;
+    prompt += buildContextBlock(this.safeWorkingDir);
 
     return prompt;
   }
@@ -104,7 +107,7 @@ export class ReviewFixService {
     }
   ): Promise<ReviewFixAllResult> {
     const severityOrder = ['critical', 'major', 'minor'];
-    let commentsToFix = [...(review.comments ?? [])];
+    let commentsToFix = safeFilterArray(review.comments);
 
     if (options?.commentIds && options.commentIds.length > 0) {
       commentsToFix = commentsToFix.filter((c) => options.commentIds!.includes(c.id));
@@ -131,6 +134,10 @@ export class ReviewFixService {
       severityFilter: options?.severityFilter,
     });
 
+    if (!fixPrompt || fixPrompt === 'No comments to fix.') {
+      throw new TemplateError('Fix prompt generation produced empty output unexpectedly');
+    }
+
     const fixTask: Task = {
       id: `review_fix_${review.id}`,
       type: 'review',
@@ -147,7 +154,7 @@ export class ReviewFixService {
 
     try {
       const result = await this.agentService.execute(fixTask, {
-        cwd: this.workingDir,
+        cwd: this.safeWorkingDir,
         agentName: options?.agentName,
       });
 

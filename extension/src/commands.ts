@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import type { TraytorTaskProvider } from './task-provider.js';
 import type { TraytorOutputChannel } from './output-channel.js';
 
@@ -7,11 +7,20 @@ function getTraytorPath(): string {
   return 'traytor';
 }
 
-function runTraytorCommandAsync(args: string, timeout = 120000): Promise<string> {
+function validateInput(input: string, fieldName: string): void {
+  if (input.includes('\0')) {
+    throw new Error(`${fieldName} contains null bytes`);
+  }
+  if (input.includes('\n')) {
+    throw new Error(`${fieldName} contains newlines`);
+  }
+}
+
+function runTraytorCommandAsync(args: string[], timeout = 120000): Promise<string> {
   return new Promise((resolve, reject) => {
-    const cmd = `${getTraytorPath()} ${args}`;
-    exec(
-      cmd,
+    execFile(
+      getTraytorPath(),
+      args,
       {
         encoding: 'utf-8',
         timeout,
@@ -44,11 +53,19 @@ export function registerCommands(
 
       if (!query) return;
 
+      try {
+        validateInput(query, 'Query');
+      } catch (validationError) {
+        const message = validationError instanceof Error ? validationError.message : String(validationError);
+        vscode.window.showErrorMessage(`Invalid input: ${message}`);
+        return;
+      }
+
       outputChannel.show();
       outputChannel.appendLine(`Creating plan for: ${query}`);
 
       try {
-        const result = await runTraytorCommandAsync(`plan "${query.replace(/"/g, '\\"')}"`);
+        const result = await runTraytorCommandAsync(['plan', query]);
         outputChannel.appendLine(result);
 
         const doc = await vscode.workspace.openTextDocument({
@@ -97,7 +114,7 @@ export function registerCommands(
       outputChannel.appendLine(`Executing task: ${targetTaskId}`);
 
       try {
-        const result = await runTraytorCommandAsync(`exec ${targetTaskId}`, 300000);
+        const result = await runTraytorCommandAsync(['exec', targetTaskId], 300000);
         outputChannel.appendLine(result);
         vscode.window.showInformationMessage(`Task ${targetTaskId} executed successfully`);
         taskProvider.refresh();
@@ -146,7 +163,7 @@ export function registerCommands(
       outputChannel.appendLine(`Verifying task: ${targetTaskId}`);
 
       try {
-        const result = await runTraytorCommandAsync(`verify ${targetTaskId}`);
+        const result = await runTraytorCommandAsync(['verify', targetTaskId]);
         outputChannel.appendLine(result);
         vscode.window.showInformationMessage(`Task ${targetTaskId} verified`);
         taskProvider.refresh();
@@ -164,7 +181,7 @@ export function registerCommands(
       outputChannel.appendLine('Loading task history...');
 
       try {
-        const result = await runTraytorCommandAsync('history');
+        const result = await runTraytorCommandAsync(['history']);
         outputChannel.appendLine(result);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

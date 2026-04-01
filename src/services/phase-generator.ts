@@ -175,14 +175,14 @@ export class PhaseGenerator {
     while ((match = phaseRegex.exec(markdown)) !== null) {
       phaseMatches.push({
         index: match.index,
-        phaseNum: parseInt(match[1], 10),
-        title: match[2].trim(),
+        phaseNum: parseInt(match[1]!, 10),
+        title: match[2]!.trim(),
       });
     }
 
     for (let i = 0; i < phaseMatches.length; i++) {
-      const current = phaseMatches[i];
-      const nextIndex = i + 1 < phaseMatches.length ? phaseMatches[i + 1].index : markdown.length;
+      const current = phaseMatches[i]!;
+      const nextIndex = i + 1 < phaseMatches.length ? phaseMatches[i + 1]!.index : markdown.length;
       const block = markdown.slice(current.index, nextIndex);
 
       const description = this.extractPhaseDescription(block);
@@ -214,7 +214,7 @@ export class PhaseGenerator {
 
     // Re-index orders to be sequential starting from 1
     for (let i = 0; i < phases.length; i++) {
-      phases[i].order = i + 1;
+      phases[i]!.order = i + 1;
     }
 
     return phases;

@@ -36,9 +36,9 @@ function decrypt(ciphertext: string, key: Buffer): string {
   if (parts.length !== 3) {
     throw new Error('Invalid encrypted data format');
   }
-  const iv = Buffer.from(parts[0], 'hex');
-  const tag = Buffer.from(parts[1], 'hex');
-  const encrypted = parts[2];
+  const iv = Buffer.from(parts[0]!, 'hex');
+  const tag = Buffer.from(parts[1]!, 'hex');
+  const encrypted = parts[2]!;
 
   const decipher = createDecipheriv(ALGORITHM, key, iv);
   decipher.setAuthTag(tag);

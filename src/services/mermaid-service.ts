@@ -27,7 +27,7 @@ export class MermaidService {
 
     const stepId = 'A';
     for (let i = 0; i < plan.steps.length; i++) {
-      const step = plan.steps[i];
+      const step = plan.steps[i]!;
       const currentId = String.fromCharCode(65 + i);
       const sanitizedTitle = this.sanitizeNodeLabel(step.title);
 
@@ -56,7 +56,7 @@ export class MermaidService {
     const nodeIds = new Map<string, string>();
 
     for (let i = 0; i < steps.length; i++) {
-      const step = steps[i];
+      const step = steps[i]!;
       const id = String.fromCharCode(65 + i);
       nodeIds.set(step.name, id);
       lines.push(`    ${id}[${this.sanitizeNodeLabel(step.name)}]`);
@@ -233,7 +233,7 @@ export class MermaidService {
       ];
 
       const firstWord = code.trim().split(/\s/)[0];
-      if (!validDiagrams.some((d) => firstWord.startsWith(d))) {
+      if (!validDiagrams.some((d) => firstWord!.startsWith(d))) {
         return { valid: false, error: `Unknown diagram type: ${firstWord}` };
       }
 

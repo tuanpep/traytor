@@ -288,7 +288,7 @@ export class GitHubService {
     for (const pattern of patterns) {
       const match = url.match(pattern);
       if (match) {
-        return { owner: match[1], repo: match[2] };
+        return { owner: match[1]!, repo: match[2]! };
       }
     }
 

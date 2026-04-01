@@ -173,7 +173,7 @@ export class TicketAssistService {
     if (plan.steps && plan.steps.length > 0) {
       comment += `### Steps\n\n`;
       for (let i = 0; i < plan.steps.length; i++) {
-        const step = plan.steps[i];
+        const step = plan.steps[i]!;
         comment += `${i + 1}. **${step.title}**\n`;
         if (step.description) {
           comment += `   ${step.description}\n`;

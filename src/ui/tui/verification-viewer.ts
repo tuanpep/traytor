@@ -69,7 +69,7 @@ export function renderVerificationViewer(verification: Verification): string {
     lines.push(chalk.dim('  ' + '─'.repeat(30)));
 
     for (let i = 0; i < comments.length; i++) {
-      const comment = comments[i];
+      const comment = comments[i]!;
       lines.push('');
       lines.push(`  ${color(icon)} ${color(`Issue ${i + 1}`)}`);
 

@@ -411,7 +411,7 @@ export function runHelpCommand(command?: string): void {
     console.log('');
     const commands = Object.keys(COMMAND_DOCS);
     for (const cmd of commands) {
-      const description = COMMAND_DOCS[cmd].split('\n')[0].replace(chalk.bold(''), '');
+      const description = COMMAND_DOCS[cmd]!.split('\n')[0]!.replace(chalk.bold(''), '');
       console.log(
         `  ${chalk.yellow(cmd.padEnd(12))} ${chalk.dim(description.replace(/^traytor/, ''))}`
       );

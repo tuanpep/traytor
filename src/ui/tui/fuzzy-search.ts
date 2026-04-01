@@ -93,9 +93,9 @@ export function highlightMatches(text: string, positions: number[], color: (s: s
 
   for (let i = 0; i < text.length; i++) {
     if (posSet.has(i)) {
-      result += color(text[i]);
+      result += color(text[i]!);
     } else {
-      result += text[i];
+      result += text[i]!;
     }
   }
 

@@ -3,7 +3,7 @@ import path from 'node:path';
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { initLogger, getLogger } from '../utils/logger.js';
-import { TraytorError } from '../utils/errors.js';
+import { TraytorError, ErrorCode } from '../utils/errors.js';
 import { bootstrap, type AppContext } from '../app/bootstrap.js';
 import { runPlanCommand } from '../commands/plan.js';
 import { runExecCommand } from '../commands/exec.js';
@@ -282,7 +282,7 @@ program
       await runYOLOCommand(
         {
           taskService: ctx.taskService,
-          planGenerator: ctx.planGenerator!,
+          planGenerator: ctx.planGenerator,
           agentService: ctx.agentService,
           verifier: ctx.verifier,
           gitService: ctx.gitService,
@@ -650,7 +650,7 @@ program
         } else if (task.phases && task.phases.length > 0) {
           const lines = ['graph TD', `  Start[Task: ${task.query}]`];
           task.phases.forEach((p, i) => {
-            const prev = i === 0 ? 'Start' : `P${task.phases![i - 1].order}`;
+            const prev = i === 0 ? 'Start' : `P${task.phases![i - 1]!.order}`;
             lines.push(`  P${p.order}[Phase ${p.order}: ${p.name}]`);
             lines.push(`  ${prev} --> P${p.order}`);
           });
@@ -1141,6 +1141,28 @@ async function getContext(): Promise<AppContext> {
   return _context;
 }
 
+const ERROR_EXIT_CODES: Record<ErrorCode, number> = {
+  [ErrorCode.TASK_NOT_FOUND]: 10,
+  [ErrorCode.PLAN_GENERATION_FAILED]: 11,
+  [ErrorCode.AGENT_EXECUTION_FAILED]: 12,
+  [ErrorCode.VERIFICATION_FAILED]: 13,
+  [ErrorCode.CONFIG_INVALID]: 14,
+  [ErrorCode.FILE_NOT_FOUND]: 15,
+  [ErrorCode.LLM_API_ERROR]: 16,
+  [ErrorCode.TEMPLATE_ERROR]: 17,
+  [ErrorCode.PHASE_NOT_FOUND]: 20,
+  [ErrorCode.PHASE_GENERATION_FAILED]: 21,
+  [ErrorCode.EPIC_NOT_FOUND]: 30,
+  [ErrorCode.SPEC_NOT_FOUND]: 31,
+  [ErrorCode.TICKET_NOT_FOUND]: 32,
+  [ErrorCode.EPIC_GENERATION_FAILED]: 33,
+  [ErrorCode.GIT_ERROR]: 40,
+  [ErrorCode.WORKFLOW_ERROR]: 50,
+  [ErrorCode.WORKFLOW_NOT_FOUND]: 51,
+  [ErrorCode.WORKFLOW_STATE_ERROR]: 52,
+  [ErrorCode.REVIEW_FAILED]: 60,
+};
+
 function handleError(err: unknown): void {
   const logger = getLogger();
   if (err instanceof TraytorError) {
@@ -1152,8 +1174,11 @@ function handleError(err: unknown): void {
     if (err.details) {
       logger.debug('Error details:', err.details);
     }
+    const exitCode = ERROR_EXIT_CODES[err.code] ?? 1;
+    process.exit(exitCode);
   } else if (err instanceof Error) {
     logger.error(err.message);
+    if (err.stack) logger.debug(err.stack);
     console.error(chalk.red(err.message));
   } else {
     logger.error(String(err));

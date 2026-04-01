@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import {
   AgentExecutionError,
+  ConfigError,
+  FileNotFoundError,
+  LLMProviderError,
   PlanGenerationError,
+  TemplateError,
   TraytorError,
   TaskNotFoundError,
   VerificationError,
@@ -29,5 +33,50 @@ describe('TraytorError hierarchy', () => {
     expect(planError.details).toEqual({ template: 'default' });
     expect(agentError.details).toEqual({ exitCode: 127 });
     expect(verifyError.details).toEqual({ failedChecks: 2 });
+  });
+});
+
+describe('ConfigError', () => {
+  it('maps to CONFIG_INVALID code', () => {
+    const error = new ConfigError('missing provider');
+    expect(error).toBeInstanceOf(TraytorError);
+    expect(error.code).toBe('CONFIG_INVALID');
+    expect(error.name).toBe('ConfigError');
+    expect(error.message).toContain('missing provider');
+    expect(error.suggestion).toContain('config');
+  });
+});
+
+describe('FileNotFoundError', () => {
+  it('maps to FILE_NOT_FOUND code with filePath in details', () => {
+    const error = new FileNotFoundError('/missing/file.ts');
+    expect(error).toBeInstanceOf(TraytorError);
+    expect(error.code).toBe('FILE_NOT_FOUND');
+    expect(error.name).toBe('FileNotFoundError');
+    expect(error.details).toEqual({ filePath: '/missing/file.ts' });
+  });
+
+  it('preserves additional details', () => {
+    const error = new FileNotFoundError('src/index.ts', { workingDir: '/home/user' });
+    expect(error.details).toEqual({ filePath: 'src/index.ts', workingDir: '/home/user' });
+  });
+});
+
+describe('TemplateError', () => {
+  it('maps to TEMPLATE_ERROR code', () => {
+    const error = new TemplateError('invalid handlebars syntax');
+    expect(error).toBeInstanceOf(TraytorError);
+    expect(error.code).toBe('TEMPLATE_ERROR');
+    expect(error.name).toBe('TemplateError');
+    expect(error.message).toContain('invalid handlebars syntax');
+  });
+});
+
+describe('LLMProviderError', () => {
+  it('maps to LLM_API_ERROR code', () => {
+    const error = new LLMProviderError('anthropic', 'rate limited');
+    expect(error).toBeInstanceOf(TraytorError);
+    expect(error.code).toBe('LLM_API_ERROR');
+    expect(error.name).toBe('LLMProviderError');
   });
 });

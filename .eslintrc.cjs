@@ -7,8 +7,10 @@ module.exports = {
     ecmaVersion: 2022,
     sourceType: 'module',
   },
+  ignorePatterns: ['scripts/', 'dist/', 'node_modules/'],
   rules: {
     '@typescript-eslint/no-explicit-any': 'warn',
+    '@typescript-eslint/no-unnecessary-type-assertion': 'error',
     'no-console': 'off',
   },
   overrides: [

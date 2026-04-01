@@ -12,8 +12,9 @@ export default defineConfig({
   dts: false,
   outDir: 'dist',
   esbuildOptions(options) {
+    const pkg = JSON.parse(fs.readFileSync('./package.json', 'utf-8'));
     options.define = {
-      'import.meta.env.PACKAGE_VERSION': JSON.stringify(require('./package.json').version),
+      'import.meta.env.PACKAGE_VERSION': JSON.stringify(pkg.version),
     };
   },
   async onSuccess() {

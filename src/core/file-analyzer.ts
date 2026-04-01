@@ -319,7 +319,7 @@ export class FileAnalyzer {
       let match: RegExpExecArray | null;
       const regex = new RegExp(JS_TS_IMPORT_REGEX.source, JS_TS_IMPORT_REGEX.flags);
       while ((match = regex.exec(content)) !== null) {
-        imports.push(match[1]);
+        imports.push(match[1]!);
       }
     }
 
@@ -333,7 +333,7 @@ export class FileAnalyzer {
       // Python uses __all__ for explicit exports
       const allMatch = content.match(/^__all__\s*=\s*\[([^\]]*)\]/m);
       if (allMatch) {
-        allMatch[1].split(',').forEach((name) => {
+        allMatch[1]!.split(',').forEach((name) => {
           const trimmed = name.trim().replace(/['"]/g, '');
           if (trimmed) exports_.push(trimmed);
         });
@@ -383,8 +383,8 @@ export class FileAnalyzer {
 
     if (!child) {
       child = {
-        name: head,
-        path: path.join(node.path, head),
+        name: head!,
+        path: path.join(node.path, head!),
         children: [],
         files: [],
       };

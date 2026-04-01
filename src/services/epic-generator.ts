@@ -114,8 +114,8 @@ export class EpicGenerator {
     // Record responses
     for (let i = 0; i < Math.min(answers.length, state.questions.length); i++) {
       state.responses.push({
-        questionId: state.questions[i].id,
-        answer: answers[i],
+        questionId: state.questions[i]!.id,
+        answer: answers[i]!,
       });
     }
 
@@ -442,16 +442,20 @@ Respond in markdown format.`;
     const ticketMatches: { index: number; ticketNum: number; title: string }[] = [];
 
     while ((match = ticketRegex.exec(content)) !== null) {
-      ticketMatches.push({
-        index: match.index,
-        ticketNum: parseInt(match[1], 10),
-        title: match[2].trim(),
-      });
+      const ticketNumStr = match[1];
+      const titleStr = match[2];
+      if (ticketNumStr && titleStr) {
+        ticketMatches.push({
+          index: match.index,
+          ticketNum: parseInt(ticketNumStr, 10),
+          title: titleStr.trim(),
+        });
+      }
     }
 
     for (let i = 0; i < ticketMatches.length; i++) {
-      const current = ticketMatches[i];
-      const nextIndex = i + 1 < ticketMatches.length ? ticketMatches[i + 1].index : content.length;
+      const current = ticketMatches[i]!;
+      const nextIndex = i + 1 < ticketMatches.length ? ticketMatches[i + 1]!.index : content.length;
       const block = content.slice(current.index, nextIndex);
 
       const description = this.extractTicketDescription(block);
@@ -510,7 +514,7 @@ Respond in markdown format.`;
           // Match list items: - item, * item, 1. item
           const listMatch = trimmed.match(/^[-*\d.)\]]\s+(.+)/);
           if (listMatch) {
-            criteria.push(listMatch[1].trim());
+            criteria.push(listMatch[1]!.trim());
           }
         }
       }

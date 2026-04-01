@@ -38,7 +38,7 @@ export class TraytorError extends Error {
     this.details = details;
   }
 
-  toString(): string {
+  override toString(): string {
     let output = `${this.name} [${this.code}]: ${this.message}`;
     if (this.suggestion) {
       output += `\n  Suggestion: ${this.suggestion}`;
@@ -243,5 +243,41 @@ export class WorkflowStateError extends TraytorError {
       details
     );
     this.name = 'WorkflowStateError';
+  }
+}
+
+export class ConfigError extends TraytorError {
+  constructor(reason: string, details?: Record<string, unknown>) {
+    super(
+      ErrorCode.CONFIG_INVALID,
+      `Configuration error: ${reason}`,
+      'Check your config file at ~/.traytor/config.yaml or .traytor/config.yaml',
+      details
+    );
+    this.name = 'ConfigError';
+  }
+}
+
+export class FileNotFoundError extends TraytorError {
+  constructor(filePath: string, details?: Record<string, unknown>) {
+    super(
+      ErrorCode.FILE_NOT_FOUND,
+      `File not found: ${filePath}`,
+      'Check that the file exists and the path is correct',
+      { filePath, ...details }
+    );
+    this.name = 'FileNotFoundError';
+  }
+}
+
+export class TemplateError extends TraytorError {
+  constructor(reason: string, details?: Record<string, unknown>) {
+    super(
+      ErrorCode.TEMPLATE_ERROR,
+      `Template error: ${reason}`,
+      'Check your template syntax and variables',
+      details
+    );
+    this.name = 'TemplateError';
   }
 }

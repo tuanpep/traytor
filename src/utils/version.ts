@@ -9,13 +9,15 @@ export function resolveVersion(): string {
       path.dirname(fileURLToPath(import.meta.url)),
       '..',
       '..',
-      'package.json',
+      'package.json'
     );
     if (fs.existsSync(distPackageJson)) {
       const pkg = JSON.parse(fs.readFileSync(distPackageJson, 'utf-8'));
       if (pkg.version) return pkg.version;
     }
-  } catch {}
+  } catch {
+    // Ignore and try next strategy
+  }
 
   // Strategy 2: Try process.cwd() based resolution (development)
   try {
@@ -24,7 +26,9 @@ export function resolveVersion(): string {
       const pkg = JSON.parse(fs.readFileSync(cwdPackageJson, 'utf-8'));
       if (pkg.version) return pkg.version;
     }
-  } catch {}
+  } catch {
+    // Ignore and use fallback
+  }
 
   // Fallback
   return '1.0.0';

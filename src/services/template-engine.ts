@@ -79,7 +79,7 @@ export class TemplateEngine {
           this.logger.debug(`Using builtin template directory: ${dir}`);
         }
         return exists;
-      }) || possibleTemplateDirs[1]; // Default to ../templates if none exist
+      }) || possibleTemplateDirs[1]!; // Default to ../templates if none exist
 
     if (customTemplateDir) {
       this.customTemplateDir = path.resolve(customTemplateDir);

@@ -156,7 +156,7 @@ export class WorkflowEngine {
       );
     }
 
-    const currentStepState = state.stepStates[state.currentStepIndex];
+    const currentStepState = state.stepStates[state.currentStepIndex]!;
 
     // Mark current step as completed
     currentStepState.status = 'completed';
@@ -170,13 +170,13 @@ export class WorkflowEngine {
     if (nextIndex < state.definition.steps.length) {
       // Activate the next step
       state.currentStepIndex = nextIndex;
-      const nextStepState = state.stepStates[nextIndex];
+      const nextStepState = state.stepStates[nextIndex]!;
       nextStepState.status = 'active';
       nextStepState.startedAt = new Date().toISOString();
       state.updatedAt = new Date().toISOString();
 
       this.logger.info(
-        `Workflow ${workflowId} advanced to step ${nextIndex + 1}: ${state.definition.steps[nextIndex].name}`
+        `Workflow ${workflowId} advanced to step ${nextIndex + 1}: ${state.definition.steps[nextIndex]!.name}`
       );
     } else {
       // All steps completed
@@ -203,12 +203,12 @@ export class WorkflowEngine {
       );
     }
 
-    const step = state.definition.steps[state.currentStepIndex];
+    const step = state.definition.steps[state.currentStepIndex]!;
     if (step.required) {
       throw new WorkflowStateError(`Cannot skip required step: ${step.name}`);
     }
 
-    const currentStepState = state.stepStates[state.currentStepIndex];
+    const currentStepState = state.stepStates[state.currentStepIndex]!;
     currentStepState.status = 'skipped';
     currentStepState.completedAt = new Date().toISOString();
 
@@ -216,7 +216,7 @@ export class WorkflowEngine {
     const nextIndex = state.currentStepIndex + 1;
     if (nextIndex < state.definition.steps.length) {
       state.currentStepIndex = nextIndex;
-      const nextStepState = state.stepStates[nextIndex];
+      const nextStepState = state.stepStates[nextIndex]!;
       nextStepState.status = 'active';
       nextStepState.startedAt = new Date().toISOString();
     } else {
@@ -293,7 +293,7 @@ export class WorkflowEngine {
    */
   getCurrentStep(workflowId: string): WorkflowStepDefinition {
     const state = this.getWorkflowState(workflowId);
-    return state.definition.steps[state.currentStepIndex];
+    return state.definition.steps[state.currentStepIndex]!;
   }
 
   /**
@@ -316,7 +316,7 @@ export class WorkflowEngine {
       return null;
     }
 
-    const step = state.definition.steps[state.currentStepIndex];
+    const step = state.definition.steps[state.currentStepIndex]!;
     return {
       command: step.command === 'custom' ? (step.customCommand ?? step.name) : step.command,
       stepName: step.name,
@@ -342,7 +342,7 @@ export class WorkflowEngine {
    */
   getNextSteps(workflowId: string): string[] {
     const state = this.getWorkflowState(workflowId);
-    const step = state.definition.steps[state.currentStepIndex];
+    const step = state.definition.steps[state.currentStepIndex]!;
     return step.nextSteps ?? [];
   }
 

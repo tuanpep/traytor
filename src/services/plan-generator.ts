@@ -234,14 +234,14 @@ export class PlanGenerator {
     while ((match = stepRegex.exec(markdown)) !== null) {
       stepMatches.push({
         index: match.index,
-        stepNum: parseInt(match[1], 10),
-        title: match[2].trim(),
+        stepNum: parseInt(match[1]!, 10),
+        title: match[2]!.trim(),
       });
     }
 
     for (let i = 0; i < stepMatches.length; i++) {
-      const current = stepMatches[i];
-      const nextIndex = i + 1 < stepMatches.length ? stepMatches[i + 1].index : markdown.length;
+      const current = stepMatches[i]!;
+      const nextIndex = i + 1 < stepMatches.length ? stepMatches[i + 1]!.index : markdown.length;
       const block = markdown.slice(current.index, nextIndex);
 
       const description = this.extractStepDescription(block);
@@ -285,14 +285,14 @@ export class PlanGenerator {
       /`([^`]*\.(?:ts|tsx|js|jsx|py|go|rs|java|vue|svelte|json|yaml|yml|md|css|scss|html|xml))`/gi;
     let m: RegExpExecArray | null;
     while ((m = backtickPattern.exec(block)) !== null) {
-      files.add(m[1].trim());
+      files.add(m[1]!.trim());
     }
 
     // Pattern 2: Bare file paths with extensions in square brackets
     const bracketPattern =
       /\[([^\]]*\.(?:ts|tsx|js|jsx|py|go|rs|java|vue|svelte|json|yaml|yml|md|css|scss|html|xml))\]/gi;
     while ((m = bracketPattern.exec(block)) !== null) {
-      files.add(m[1].trim());
+      files.add(m[1]!.trim());
     }
 
     return [...files];
@@ -306,9 +306,12 @@ export class PlanGenerator {
     const symbolPattern = /`([A-Z][a-zA-Z0-9]*)`/g;
     let m: RegExpExecArray | null;
     while ((m = symbolPattern.exec(block)) !== null) {
-      // Only add if it looks like a PascalCase symbol (class/interface/type name)
-      if (m[1][0] === m[1][0].toUpperCase() && m[1].length > 1) {
-        symbols.add(m[1].trim());
+      const captured = m[1];
+      if (captured && captured.length > 1) {
+        const firstChar = captured.charAt(0);
+        if (firstChar === firstChar.toUpperCase()) {
+          symbols.add(captured.trim());
+        }
       }
     }
 
@@ -329,7 +332,7 @@ export class PlanGenerator {
     // Look for rationale in the last paragraph if no header found
     const paragraphs = markdown.split(/\n\n+/).filter((p) => p.trim().length > 0);
     if (paragraphs.length > 0) {
-      const last = paragraphs[paragraphs.length - 1].trim();
+      const last = paragraphs[paragraphs.length - 1]!.trim();
       // Check if it looks like a rationale (not a step, not code)
       if (!last.startsWith('#') && !last.startsWith('```') && !last.match(/^Step \d+/i)) {
         return last;
@@ -342,7 +345,7 @@ export class PlanGenerator {
   private extractMermaidDiagram(markdown: string): string | undefined {
     const mermaidMatch = markdown.match(/```mermaid\n([\s\S]*?)```/);
     if (mermaidMatch) {
-      return mermaidMatch[1].trim();
+      return mermaidMatch[1]!.trim();
     }
     return undefined;
   }

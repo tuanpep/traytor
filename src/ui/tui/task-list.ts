@@ -66,7 +66,7 @@ export function renderTaskList(items: TaskListItem[], selectedIdx?: number): str
   }
 
   for (let i = 0; i < items.length; i++) {
-    const item = items[i];
+    const item = items[i]!;
     const statusColor =
       item.status === 'completed' ? chalk.green :
       item.status === 'in_progress' ? chalk.yellow :
@@ -80,7 +80,7 @@ export function renderTaskList(items: TaskListItem[], selectedIdx?: number): str
 
     const statusStr = statusColor(`[${item.status.padEnd(11)}]`);
     const queryStr = item.query.length > 50 ? item.query.slice(0, 50) + '...' : item.query;
-    const dateStr = chalk.dim(item.createdAt.split('T')[0]);
+    const dateStr = chalk.dim(item.createdAt.split('T')[0]!);
 
     lines.push(`${prefix}${statusStr} ${chalk.dim(typeIcon)} ${queryStr}  ${dateStr}`);
   }

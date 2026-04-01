@@ -254,7 +254,7 @@ Implement all steps completely. Do not skip any steps.`;
 
     if (this.config.agents.length > 0) {
       // Use the first configured agent
-      return this.config.agents[0];
+      return this.config.agents[0]!;
     }
     return DEFAULT_AGENT_CONFIG;
   }

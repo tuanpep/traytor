@@ -316,7 +316,7 @@ export class TaskService {
 
     // Build context carry-over from all completed phases before this one
     const completedBefore = task
-      .phases!.filter((p) => p.status === 'completed' && p.order < phaseOrder)
+      .phases.filter((p) => p.status === 'completed' && p.order < phaseOrder)
       .sort((a, b) => a.order - b.order);
     phase.contextCarryOver = buildContextCarryOver(completedBefore);
 
@@ -471,7 +471,7 @@ export class TaskService {
 
     // Apply new ordering
     for (let i = 0; i < phaseIds.length; i++) {
-      const phase = phaseMap.get(phaseIds[i])!;
+      const phase = phaseMap.get(phaseIds[i]!)!;
       phase.order = i + 1;
       phase.updatedAt = new Date().toISOString();
     }

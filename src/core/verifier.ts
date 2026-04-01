@@ -4,7 +4,9 @@ import { getLogger } from '../utils/logger.js';
 import { FileAnalyzer, type Codebase } from './file-analyzer.js';
 import { LLMService } from '../integrations/llm/llm-service.js';
 import { TemplateEngine, type VerificationPromptData } from '../services/template-engine.js';
-import { VerificationError } from '../utils/errors.js';
+import { VerificationError, FileNotFoundError } from '../utils/errors.js';
+import { validateNonEmptyString } from '../utils/validation.js';
+import { safeFilterArray } from '../utils/safe-access.js';
 import type { Task } from '../models/task.js';
 import type { Plan } from '../models/plan.js';
 import type {
@@ -53,6 +55,9 @@ export class Verifier {
    * Verify a task's implementation against its plan.
    */
   async verify(task: Task, options: VerificationOptions = {}): Promise<Verification> {
+    validateNonEmptyString(task.id, 'Task ID');
+    validateNonEmptyString(task.query, 'Task query');
+
     if (!task.plan) {
       throw new VerificationError(`Task "${task.id}" has no plan to verify against`, {
         taskId: task.id,
@@ -68,7 +73,7 @@ export class Verifier {
       const codebase = await this.analyzeCodebase();
 
       // 2. Compare implementation against plan
-      const steps = task.plan.steps ?? [];
+      const steps = safeFilterArray(task.plan.steps);
       const fileComparison = this.compareFiles(task.plan, codebase);
       const codeChanges = this.gatherCodeChanges(task.plan, codebase);
 
@@ -111,7 +116,15 @@ export class Verifier {
       const llmResponse = await this.callLLMWithRetry(prompt, maxRetries);
 
       // 6. Parse verification comments
-      const comments = this.parseVerificationResponse(llmResponse.content);
+      let comments: VerificationComment[];
+      try {
+        comments = this.parseVerificationResponse(llmResponse.content);
+      } catch (parseError) {
+        throw new VerificationError(
+          `Failed to parse LLM verification response: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+          { taskId: task.id, rawResponse: llmResponse.content }
+        );
+      }
 
       // 7. Build summary
       const summary = this.buildSummary(comments, fileComparison);
@@ -139,6 +152,9 @@ export class Verifier {
     task: Task,
     options: VerificationOptions & { onChunk?: StreamCallback } = {}
   ): Promise<Verification> {
+    validateNonEmptyString(task.id, 'Task ID');
+    validateNonEmptyString(task.query, 'Task query');
+
     if (!task.plan) {
       throw new VerificationError(`Task "${task.id}" has no plan to verify against`, {
         taskId: task.id,
@@ -154,10 +170,11 @@ export class Verifier {
     const fileComparison = this.compareFiles(task.plan, codebase);
     const codeChanges = this.gatherCodeChanges(task.plan, codebase);
 
+    const steps = safeFilterArray(task.plan.steps);
     const verificationData: VerificationPromptData = {
       planId: task.plan.id,
       query: task.query,
-      steps: task.plan.steps.map((step) => ({
+      steps: steps.map((step) => ({
         title: step.title,
         description: step.description,
         files: step.files,
@@ -177,7 +194,15 @@ export class Verifier {
     );
     process.stdout.write('\n');
 
-    const comments = this.parseVerificationResponse(llmResponse.content);
+    let comments: VerificationComment[];
+    try {
+      comments = this.parseVerificationResponse(llmResponse.content);
+    } catch (parseError) {
+      throw new VerificationError(
+        `Failed to parse LLM verification response: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+        { taskId: task.id, rawResponse: llmResponse.content }
+      );
+    }
     const summary = this.buildSummary(comments, fileComparison);
 
     return {
@@ -199,7 +224,10 @@ export class Verifier {
     } catch (error) {
       if (error instanceof VerificationError) throw error;
       const code = (error as NodeJS.ErrnoException).code;
-      if (code === 'ENOENT' || code === 'EACCES') {
+      if (code === 'ENOENT') {
+        throw new FileNotFoundError(this.workingDir, { originalError: error });
+      }
+      if (code === 'EACCES') {
         throw new VerificationError(
           `Cannot access working directory: ${this.workingDir}`,
           { workingDir: this.workingDir, originalError: error }
@@ -409,7 +437,7 @@ export class Verifier {
   }> | null {
     // Try to extract JSON from markdown code blocks
     const codeBlockMatch = response.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
-    const jsonStr = codeBlockMatch ? codeBlockMatch[1].trim() : response.trim();
+    const jsonStr = codeBlockMatch?.[1]?.trim() ?? response.trim();
 
     try {
       const parsed = JSON.parse(jsonStr);
@@ -543,7 +571,7 @@ export class Verifier {
     const severity = this.mapSeverity(severityMatch?.[1]);
     const description = descriptionMatch?.[1]?.trim() || block.slice(0, 200).trim();
     const file = fileMatch?.[1];
-    const line = lineMatch ? parseInt(lineMatch[1], 10) : undefined;
+    const line = lineMatch ? parseInt(lineMatch[1]!, 10) : undefined;
     const suggestion = suggestionMatch?.[1]?.trim();
 
     if (!description || description.length < 10) {

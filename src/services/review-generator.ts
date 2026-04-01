@@ -459,7 +459,7 @@ export class ReviewGenerator {
       category: this.mapCategory(categoryMatch?.[1]),
       severity: this.mapSeverity(severityMatch?.[1]),
       file: fileMatch?.[1],
-      line: lineMatch ? parseInt(lineMatch[1], 10) : undefined,
+      line: lineMatch ? parseInt(lineMatch[1]!, 10) : undefined,
       message: description,
       suggestion: suggestionMatch?.[1]?.trim(),
     };

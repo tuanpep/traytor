@@ -26,7 +26,7 @@ function computeStats(tasks: Task[]): TaskStats {
     completedToday: 0,
   };
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toISOString().split('T')[0]!;
 
   for (const task of tasks) {
     stats.byStatus[task.status]++;

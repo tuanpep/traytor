@@ -1,4 +1,6 @@
 import chalk from 'chalk';
+import { validateNonEmptyString } from '../utils/validation.js';
+import { WorkflowNotFoundError, WorkflowStateError } from '../utils/errors.js';
 import type { WorkflowEngine } from '../services/workflow-engine.js';
 import type { GitService } from '../services/git-service.js';
 import type { WorkflowDefinition, WorkflowState } from '../models/workflow.js';
@@ -44,10 +46,12 @@ export async function runWorkflowList(ctx: WorkflowCommandContext): Promise<void
 // ─── Workflow Show ───────────────────────────────────────────────────────
 
 export async function runWorkflowShow(ctx: WorkflowCommandContext, name: string): Promise<void> {
+  validateNonEmptyString(name, 'Workflow name');
   try {
     const workflow = ctx.workflowEngine.getWorkflow(name);
     console.log(formatWorkflowDefinition(workflow, ctx));
   } catch (error) {
+    if (error instanceof WorkflowNotFoundError) throw error;
     console.error(chalk.red(error instanceof Error ? error.message : String(error)));
     throw error;
   }
@@ -60,6 +64,9 @@ export async function runWorkflowStepContent(
   workflowName: string,
   stepName: string
 ): Promise<void> {
+  validateNonEmptyString(workflowName, 'Workflow name');
+  validateNonEmptyString(stepName, 'Step name');
+
   const content = ctx.workflowEngine.getStepContent(workflowName, stepName);
   if (!content) {
     console.log(
@@ -95,6 +102,8 @@ export async function runWorkflowCreate(
   name: string,
   options: { description?: string; steps?: string }
 ): Promise<void> {
+  validateNonEmptyString(name, 'Workflow name');
+
   if (!options.steps) {
     console.error(chalk.red('--steps is required. Provide comma-separated step names.'));
     console.log(chalk.dim('Example: --steps "Plan,Execute,Verify,Complete"'));
@@ -154,10 +163,12 @@ export async function runWorkflowState(
   ctx: WorkflowCommandContext,
   workflowId: string
 ): Promise<void> {
+  validateNonEmptyString(workflowId, 'Workflow ID');
   try {
     const state = ctx.workflowEngine.getWorkflowState(workflowId);
     console.log(formatWorkflowState(state));
   } catch (error) {
+    if (error instanceof WorkflowNotFoundError || error instanceof WorkflowStateError) throw error;
     console.error(chalk.red(error instanceof Error ? error.message : String(error)));
     throw error;
   }
@@ -169,12 +180,14 @@ export async function runWorkflowAdvance(
   ctx: WorkflowCommandContext,
   workflowId: string
 ): Promise<void> {
+  validateNonEmptyString(workflowId, 'Workflow ID');
   try {
     const state = await ctx.workflowEngine.advanceWorkflow(workflowId);
     console.log(chalk.green('Workflow advanced!'));
     console.log('');
     console.log(formatWorkflowState(state));
   } catch (error) {
+    if (error instanceof WorkflowNotFoundError || error instanceof WorkflowStateError) throw error;
     console.error(chalk.red(error instanceof Error ? error.message : String(error)));
     throw error;
   }
@@ -186,12 +199,14 @@ export async function runWorkflowPause(
   ctx: WorkflowCommandContext,
   workflowId: string
 ): Promise<void> {
+  validateNonEmptyString(workflowId, 'Workflow ID');
   try {
     const state = await ctx.workflowEngine.pauseWorkflow(workflowId);
     console.log(chalk.yellow('Workflow paused.'));
     console.log('');
     console.log(formatWorkflowState(state));
   } catch (error) {
+    if (error instanceof WorkflowNotFoundError || error instanceof WorkflowStateError) throw error;
     console.error(chalk.red(error instanceof Error ? error.message : String(error)));
     throw error;
   }
@@ -201,12 +216,14 @@ export async function runWorkflowResume(
   ctx: WorkflowCommandContext,
   workflowId: string
 ): Promise<void> {
+  validateNonEmptyString(workflowId, 'Workflow ID');
   try {
     const state = await ctx.workflowEngine.resumeWorkflow(workflowId);
     console.log(chalk.green('Workflow resumed.'));
     console.log('');
     console.log(formatWorkflowState(state));
   } catch (error) {
+    if (error instanceof WorkflowNotFoundError || error instanceof WorkflowStateError) throw error;
     console.error(chalk.red(error instanceof Error ? error.message : String(error)));
     throw error;
   }
@@ -438,31 +455,32 @@ function formatWorkflowState(state: WorkflowState): string {
   lines.push('');
 
   for (let i = 0; i < state.definition.steps.length; i++) {
-    const step = state.definition.steps[i];
+    const step = state.definition.steps[i]!;
     const stepState = state.stepStates[i];
     const isCurrent = i === state.currentStepIndex && state.status === 'in_progress';
 
+    const status = stepState?.status ?? 'pending';
     const stepStatusColor =
-      stepState.status === 'completed'
+      status === 'completed'
         ? chalk.green
-        : stepState.status === 'active'
+        : status === 'active'
           ? chalk.yellow
-          : stepState.status === 'skipped'
+          : status === 'skipped'
             ? chalk.gray
             : chalk.dim;
 
     const icon =
-      stepState.status === 'completed'
+      status === 'completed'
         ? 'v'
-        : stepState.status === 'active'
+        : status === 'active'
           ? '>'
-          : stepState.status === 'skipped'
+          : status === 'skipped'
             ? '-'
             : 'o';
 
     const prefix = isCurrent ? chalk.bold('>') : ' ';
     lines.push(
-      `${prefix} ${stepStatusColor(icon)} ${chalk.bold(step.name)} ${stepStatusColor(`[${stepState.status}]`)}`
+      `${prefix} ${stepStatusColor(icon)} ${chalk.bold(step.name)} ${stepStatusColor(`[${status}]`)}`
     );
   }
 

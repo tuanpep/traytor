@@ -1,5 +1,12 @@
 import chalk from 'chalk';
 import { getLogger } from '../utils/logger.js';
+import { safeFilterArray } from '../utils/safe-access.js';
+import {
+  buildCommentBlock,
+  buildInstructionsList,
+  buildContextBlock,
+} from '../utils/prompt-builder.js';
+import { validateFilePath } from '../utils/validation.js';
 import type { Verification, VerificationComment } from '../models/verification.js';
 import type { Task } from '../models/task.js';
 import type { AgentService } from './agent-service.js';
@@ -19,18 +26,21 @@ export interface FixAllResult {
 
 export class VerificationFixService {
   private logger = getLogger();
+  private readonly safeWorkingDir: string;
 
   constructor(
     private readonly agentService: AgentService,
-    private readonly workingDir: string
-  ) {}
+    workingDir: string
+  ) {
+    this.safeWorkingDir = validateFilePath(workingDir);
+  }
 
   generateFixPrompt(
     comments: VerificationComment[],
     task: Task,
     options?: { includePlan?: boolean; onlyBlocking?: boolean; severityFilter?: string[] }
   ): string {
-    const safeComments = comments?.filter((c) => c != null) ?? [];
+    const safeComments = safeFilterArray(comments);
     const blockingCategories = options?.severityFilter ?? ['critical', 'major'];
     const filteredComments = options?.onlyBlocking
       ? safeComments.filter((c) => blockingCategories.includes(c.category))
@@ -58,34 +68,32 @@ export class VerificationFixService {
     prompt += `Please address the following issues found during verification:\n\n`;
 
     for (let i = 0; i < filteredComments.length; i++) {
-      const comment = filteredComments[i];
-      const prefix = `[${i + 1}]`;
-      const severityTag = `[${comment.category.toUpperCase()}]`;
-
-      prompt += `${prefix} ${severityTag} `;
-      if (comment.file) {
-        prompt += `${comment.file}`;
-        if (comment.line) {
-          prompt += `:${comment.line}`;
-        }
-        prompt += '\n';
-      }
-      prompt += `   ${comment.message}\n`;
-      if (comment.suggestion) {
-        prompt += `   Suggested fix: ${comment.suggestion}\n`;
-      }
+      const comment = filteredComments[i]!;
+      prompt += buildCommentBlock(
+        i + 1,
+        comment.category,
+        comment.category,
+        comment.file,
+        comment.line,
+        comment.message,
+        comment.suggestion
+      );
       prompt += '\n';
     }
 
     prompt += `## Instructions\n\n`;
-    prompt += `1. Address each comment in order\n`;
-    prompt += `2. For each issue, make the necessary code changes\n`;
-    prompt += `3. Focus on the most severe issues first (critical, then major)\n`;
-    prompt += `4. After making changes, verify that the fix addresses the original concern\n`;
-    prompt += `5. Do NOT introduce new issues while fixing existing ones\n\n`;
+    prompt += buildInstructionsList([
+      'Address each comment in order',
+      'For each issue, make the necessary code changes',
+      'Focus on the most severe issues first (critical, then major)',
+      'After making changes, verify that the fix addresses the original concern',
+      'Do NOT introduce new issues while fixing existing ones',
+    ]);
+    prompt += '\n\n';
     prompt += `## Context\n\n`;
-    prompt += `Working directory: ${this.workingDir}\n`;
-    prompt += `Git status will be checked after fixes are complete.\n`;
+    prompt += buildContextBlock(this.safeWorkingDir, {
+      'Git status': 'will be checked after fixes are complete',
+    });
 
     return prompt;
   }
@@ -125,7 +133,7 @@ export class VerificationFixService {
       };
 
       const result = await this.agentService.execute(fixTask, {
-        cwd: this.workingDir,
+        cwd: this.safeWorkingDir,
         agentName,
       });
 
@@ -327,7 +335,7 @@ export class VerificationFixService {
 
       try {
         const result = await this.agentService.execute(batchTask, {
-          cwd: this.workingDir,
+          cwd: this.safeWorkingDir,
           agentName: options?.agentName,
         });
 

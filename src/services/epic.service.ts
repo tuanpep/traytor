@@ -179,7 +179,7 @@ export class EpicService {
       throw new SpecNotFoundError(specId, taskId);
     }
 
-    const removed = task.epic.specs.splice(index, 1)[0];
+    const removed = task.epic.specs.splice(index, 1)[0]!;
 
     // Remove spec references from tickets
     for (const ticket of task.epic.tickets) {
@@ -334,7 +334,7 @@ export class EpicService {
       throw new TicketNotFoundError(ticketId, taskId);
     }
 
-    const removed = task.epic.tickets.splice(index, 1)[0];
+    const removed = task.epic.tickets.splice(index, 1)[0]!;
 
     task.updatedAt = new Date().toISOString();
     task.history.push({

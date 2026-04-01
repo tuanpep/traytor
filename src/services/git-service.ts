@@ -215,11 +215,13 @@ export class GitService {
   async hasUncommittedChanges(): Promise<boolean> {
     try {
       const status = await this.git.status();
-      return status.modified.length > 0 ||
+      return (
+        status.modified.length > 0 ||
         status.created.length > 0 ||
         status.deleted.length > 0 ||
         status.staged.length > 0 ||
-        status.not_added.length > 0;
+        status.not_added.length > 0
+      );
     } catch {
       return false;
     }
@@ -302,11 +304,11 @@ export class GitService {
     if (lines.length === 0) return null;
 
     // Extract file paths from the first line: a/path b/path
-    const headerMatch = lines[0].match(/^a\/(.+)\s+b\/(.+)$/);
+    const headerMatch = lines[0]!.match(/^a\/(.+)\s+b\/(.+)$/);
     if (!headerMatch) return null;
 
-    const oldFile = headerMatch[1];
-    const newFile = headerMatch[2];
+    const oldFile = headerMatch[1]!;
+    const newFile = headerMatch[2]!;
 
     // Determine file type by checking --- and +++ lines for /dev/null
     let type: GitDiffFileType = 'modified';
@@ -316,10 +318,10 @@ export class GitService {
     for (const line of lines) {
       if (line.startsWith('--- ')) {
         const match = line.match(/^--- (?:a\/)?(.+)$/);
-        if (match) oldFilePath = match[1];
+        if (match && match[1]) oldFilePath = match[1];
       } else if (line.startsWith('+++ ')) {
         const match = line.match(/^\+\+\+ (?:b\/)?(.+)$/);
-        if (match) newFilePath = match[1];
+        if (match && match[1]) newFilePath = match[1];
       }
     }
 

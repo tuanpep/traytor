@@ -225,7 +225,7 @@ async function executePhase(
     );
 
     // Show next phase hint
-    const nextPhase = task.phases!.find((p) => p.order === phaseOrder + 1);
+    const nextPhase = task.phases.find((p) => p.order === phaseOrder + 1);
     if (nextPhase) {
       console.log(
         chalk.dim(`Next: \`traytor exec ${task.id} --phase ${nextPhase.order}\` (${nextPhase.name})`)
