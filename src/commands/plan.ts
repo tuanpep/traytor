@@ -23,7 +23,7 @@ export async function runPlanCommand(
 
   logger.info(`Starting plan generation for: "${query}"`);
 
-  // 1. Create task
+  // 1. Create task (in memory, not persisted yet)
   const task = await taskService.createPlanTask(query, process.cwd());
   logger.debug(`Task created: ${task.id}`);
 
@@ -34,9 +34,6 @@ export async function runPlanCommand(
     const plan = await taskService.generatePlan(task, options.files);
 
     spinner.succeed(chalk.green('Plan generated successfully!'));
-
-    // 3. Save plan to storage
-    await taskService.savePlan(task.id, plan);
 
     // 4. Output the plan
     switch (outputFormat) {
@@ -53,7 +50,9 @@ export async function runPlanCommand(
           } else {
             // Fallback: write to stdout
             process.stdout.write(markdown);
-            console.log(chalk.yellow('\n(Clipboard not supported on this platform, output to stdout)'));
+            console.log(
+              chalk.yellow('\n(Clipboard not supported on this platform, output to stdout)')
+            );
           }
           console.log(chalk.green(`Plan copied to clipboard! (${plan.steps.length} steps)`));
         } catch {

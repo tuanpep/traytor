@@ -22,6 +22,7 @@ describe('TaskService - Phases methods', () => {
 
     const task = await taskService.createPhasesTask('Build e-commerce platform', '/tmp');
     taskId = task.id;
+    await taskService.saveTask(task);
   });
 
   function makePhase(overrides: Partial<Phase> = {}): Phase {
@@ -42,7 +43,12 @@ describe('TaskService - Phases methods', () => {
     return {
       id: createPlanId(),
       steps: [
-        { id: createPlanStepId(0), title: 'Step 1', description: 'Do something', files: ['src/a.ts'] },
+        {
+          id: createPlanStepId(0),
+          title: 'Step 1',
+          description: 'Do something',
+          files: ['src/a.ts'],
+        },
       ],
       rationale: 'Test rationale',
       iterations: [],
@@ -215,11 +221,7 @@ describe('TaskService - Phases methods', () => {
 
       const task = await taskService.getTask(taskId);
       // Reverse the order
-      const reversedIds = [
-        task.phases![2].id,
-        task.phases![1].id,
-        task.phases![0].id,
-      ];
+      const reversedIds = [task.phases![2].id, task.phases![1].id, task.phases![0].id];
       const result = await taskService.reorderPhases(taskId, reversedIds);
 
       expect(result).toHaveLength(3);
@@ -235,8 +237,9 @@ describe('TaskService - Phases methods', () => {
       const phases = [makePhase({ order: 1, name: 'Backend' })];
       await taskService.savePhases(taskId, phases);
 
-      await expect(taskService.reorderPhases(taskId, ['non-existent-id']))
-        .rejects.toThrow(PhaseNotFoundError);
+      await expect(taskService.reorderPhases(taskId, ['non-existent-id'])).rejects.toThrow(
+        PhaseNotFoundError
+      );
     });
 
     it('throws PhaseGenerationError when ID count mismatches', async () => {
@@ -248,8 +251,9 @@ describe('TaskService - Phases methods', () => {
 
       const task = await taskService.getTask(taskId);
       // Only provide 1 ID when there are 2 phases
-      await expect(taskService.reorderPhases(taskId, [task.phases![0].id]))
-        .rejects.toThrow(PhaseGenerationError);
+      await expect(taskService.reorderPhases(taskId, [task.phases![0].id])).rejects.toThrow(
+        PhaseGenerationError
+      );
     });
   });
 

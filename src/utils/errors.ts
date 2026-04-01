@@ -17,6 +17,7 @@ export enum ErrorCode {
   WORKFLOW_ERROR = 'WORKFLOW_ERROR',
   WORKFLOW_NOT_FOUND = 'WORKFLOW_NOT_FOUND',
   WORKFLOW_STATE_ERROR = 'WORKFLOW_STATE_ERROR',
+  REVIEW_FAILED = 'REVIEW_FAILED',
 }
 
 export class TraytorError extends Error {
@@ -91,6 +92,18 @@ export class VerificationError extends TraytorError {
       details
     );
     this.name = 'VerificationError';
+  }
+}
+
+export class ReviewError extends TraytorError {
+  constructor(reason: string, details?: Record<string, unknown>) {
+    super(
+      ErrorCode.REVIEW_FAILED,
+      `Review failed: ${reason}`,
+      'Check your configuration and try again',
+      details
+    );
+    this.name = 'ReviewError';
   }
 }
 

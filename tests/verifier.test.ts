@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { VerificationError } from '../src/utils/errors.js';
 
 // Mock logger
 vi.mock('../src/utils/logger.js', () => ({
@@ -323,5 +324,107 @@ describe('Verifier', () => {
     );
 
     expect(llmService.complete).toHaveBeenCalledTimes(1);
+  });
+
+  it('should handle reverify mode with open comments', async () => {
+    const llmService = createMockLLMService(SAMPLE_LLM_RESPONSE);
+    const verifier = new Verifier(llmService, '/test');
+
+    const task = createMockTask({
+      verification: {
+        id: 'verif_1',
+        taskId: 'task_test_123',
+        timestamp: new Date().toISOString(),
+        comments: [
+          {
+            id: 'vc_1',
+            category: 'critical',
+            status: 'open',
+            message: 'Missing error handling',
+            file: 'src/index.ts',
+            line: 10,
+            suggestion: 'Add try-catch',
+          },
+          {
+            id: 'vc_2',
+            category: 'minor',
+            status: 'resolved',
+            message: 'Typo in comment',
+            file: 'src/utils.ts',
+            line: 5,
+          },
+        ],
+        summary: 'Verification complete.',
+      },
+    });
+
+    vi.spyOn(fs, 'readFileSync').mockReturnValue('export const test = 1;');
+
+    const result = await verifier.verify(task, { mode: 'reverify' });
+
+    expect(result).toBeDefined();
+    expect(result.id).toMatch(/^verif_/);
+    expect(result.taskId).toBe('task_test_123');
+    expect(result.comments.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('should throw VerificationError when task has no plan', async () => {
+    const llmService = createMockLLMService('');
+    const verifier = new Verifier(llmService, '/test');
+    const task = createMockTask({ plan: undefined });
+
+    await expect(verifier.verify(task)).rejects.toThrow(VerificationError);
+  });
+
+  it('should wrap unexpected errors in VerificationError', async () => {
+    const { TemplateEngine } = await import('../src/services/template-engine.js');
+    const originalImpl = vi.mocked(TemplateEngine).getMockImplementation();
+
+    vi.mocked(TemplateEngine).mockImplementation(
+      () =>
+        ({
+          renderVerificationTemplate: vi.fn().mockImplementation(() => {
+            throw new TypeError('Cannot read properties of undefined (reading "steps")');
+          }),
+        }) as any
+    );
+
+    const llmService = createMockLLMService(SAMPLE_LLM_RESPONSE);
+    const verifier = new Verifier(llmService, '/test');
+    const task = createMockTask();
+
+    vi.spyOn(fs, 'readFileSync').mockReturnValue('export const test = 1;');
+
+    try {
+      await expect(verifier.verify(task)).rejects.toThrow(VerificationError);
+      await expect(verifier.verify(task)).rejects.toThrow('Unexpected error during verification');
+    } finally {
+      // Restore the original mock implementation
+      if (originalImpl) {
+        vi.mocked(TemplateEngine).mockImplementation(originalImpl);
+      } else {
+        vi.mocked(TemplateEngine).mockRestore();
+      }
+    }
+  });
+
+  it('should handle task with empty plan steps', async () => {
+    const llmService = createMockLLMService('No issues found.');
+    const verifier = new Verifier(llmService, '/test');
+
+    const task = createMockTask({
+      plan: {
+        id: 'plan_empty',
+        steps: [],
+        rationale: 'Empty plan',
+        iterations: [],
+      },
+    });
+
+    const result = await verifier.verify(task);
+
+    expect(result).toBeDefined();
+    expect(result.id).toMatch(/^verif_/);
+    expect(result.comments.length).toBe(0);
   });
 });

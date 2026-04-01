@@ -295,7 +295,9 @@ const REVIEW_SEVERITY_COLORS: Record<ReviewSeverity, typeof chalk.red> = {
 };
 
 export function formatReview(review: Review): string {
-  if (review.comments.length === 0) {
+  const comments = review.comments ?? [];
+
+  if (comments.length === 0) {
     return chalk.green('No issues found. Code review passed.');
   }
 
@@ -303,7 +305,7 @@ export function formatReview(review: Review): string {
 
   // Group comments by category
   const grouped = new Map<ReviewCategory, ReviewComment[]>();
-  for (const comment of review.comments) {
+  for (const comment of comments) {
     const existing = grouped.get(comment.category) || [];
     existing.push(comment);
     grouped.set(comment.category, existing);
@@ -312,15 +314,15 @@ export function formatReview(review: Review): string {
   // Display in priority order: security, bug, performance, clarity
   const order: ReviewCategory[] = ['security', 'bug', 'performance', 'clarity'];
   for (const category of order) {
-    const comments = grouped.get(category);
-    if (!comments || comments.length === 0) continue;
+    const categoryComments = grouped.get(category);
+    if (!categoryComments || categoryComments.length === 0) continue;
 
     const color = REVIEW_CATEGORY_COLORS[category];
     const icon = REVIEW_CATEGORY_ICONS[category];
-    lines.push(color.bold(`${icon} ${category.toUpperCase()} (${comments.length})`));
+    lines.push(color.bold(`${icon} ${category.toUpperCase()} (${categoryComments.length})`));
     lines.push('');
 
-    for (const comment of comments) {
+    for (const comment of categoryComments) {
       const severityColor = REVIEW_SEVERITY_COLORS[comment.severity];
       const location = comment.file
         ? comment.line
@@ -342,18 +344,27 @@ export function formatReview(review: Review): string {
 }
 
 export function formatReviewSummary(review: Review): string {
+  const comments = review.comments ?? [];
+  const summary = review.summary ?? {
+    totalComments: comments.length,
+    byCategory: {} as Record<ReviewCategory, number>,
+    bySeverity: {} as Record<ReviewSeverity, number>,
+    overallAssessment: '',
+    keyFindings: [],
+  };
+
   const lines: string[] = [];
   lines.push(chalk.bold('Code Review Summary'));
   lines.push(chalk.dim(`Query: ${review.query}`));
   lines.push(chalk.dim(`Scope: ${review.scope}`));
-  lines.push(chalk.dim(`Files: ${review.files.length}`));
+  lines.push(chalk.dim(`Files: ${(review.files ?? []).length}`));
   lines.push(chalk.dim(`Time: ${review.timestamp}`));
   lines.push('');
 
   // Category counts
-  const { byCategory, bySeverity, overallAssessment, keyFindings } = review.summary;
+  const { byCategory, bySeverity, overallAssessment, keyFindings } = summary;
   const catParts: string[] = [];
-  for (const [cat, count] of Object.entries(byCategory)) {
+  for (const [cat, count] of Object.entries(byCategory ?? {})) {
     if (count > 0) {
       catParts.push(`${REVIEW_CATEGORY_COLORS[cat as ReviewCategory](`${count} ${cat}`)}`);
     }
@@ -363,7 +374,7 @@ export function formatReviewSummary(review: Review): string {
 
   // Severity counts
   const sevParts: string[] = [];
-  for (const [sev, count] of Object.entries(bySeverity)) {
+  for (const [sev, count] of Object.entries(bySeverity ?? {})) {
     if (count > 0) {
       sevParts.push(`${REVIEW_SEVERITY_COLORS[sev as ReviewSeverity](`${count} ${sev}`)}`);
     }
@@ -380,7 +391,7 @@ export function formatReviewSummary(review: Review): string {
   lines.push(assessmentColor(`\nResult: ${overallAssessment}`));
 
   // Key findings
-  if (keyFindings.length > 0) {
+  if (keyFindings?.length > 0) {
     lines.push('');
     lines.push(chalk.bold('Key Findings:'));
     for (const finding of keyFindings) {
@@ -553,30 +564,39 @@ export function formatEpic(epic: Epic): string {
 }
 
 export function formatReviewMarkdown(review: Review): string {
+  const comments = review.comments ?? [];
+  const summary = review.summary ?? {
+    totalComments: comments.length,
+    byCategory: {} as Record<ReviewCategory, number>,
+    bySeverity: {} as Record<ReviewSeverity, number>,
+    overallAssessment: '',
+    keyFindings: [],
+  };
+
   const lines: string[] = [];
 
   lines.push(`# Code Review: ${review.query}`);
   lines.push('');
   lines.push(`- **Scope:** ${review.scope}`);
-  lines.push(`- **Files Reviewed:** ${review.files.length}`);
+  lines.push(`- **Files Reviewed:** ${(review.files ?? []).length}`);
   lines.push(`- **Time:** ${review.timestamp}`);
   lines.push('');
 
   // Summary
   lines.push('## Summary');
   lines.push('');
-  lines.push(`- **Total Findings:** ${review.summary.totalComments}`);
-  for (const [cat, count] of Object.entries(review.summary.byCategory)) {
+  lines.push(`- **Total Findings:** ${summary.totalComments}`);
+  for (const [cat, count] of Object.entries(summary.byCategory ?? {})) {
     if (count > 0) lines.push(`- **${cat.charAt(0).toUpperCase() + cat.slice(1)}:** ${count}`);
   }
-  lines.push(`- **Result:** ${review.summary.overallAssessment}`);
+  lines.push(`- **Result:** ${summary.overallAssessment}`);
   lines.push('');
 
   // Key findings
-  if (review.summary.keyFindings.length > 0) {
+  if (summary.keyFindings?.length > 0) {
     lines.push('### Key Findings');
     lines.push('');
-    for (const finding of review.summary.keyFindings) {
+    for (const finding of summary.keyFindings) {
       lines.push(`- ${finding}`);
     }
     lines.push('');
@@ -587,7 +607,7 @@ export function formatReviewMarkdown(review: Review): string {
   lines.push('');
 
   const grouped = new Map<ReviewCategory, ReviewComment[]>();
-  for (const comment of review.comments) {
+  for (const comment of comments) {
     const existing = grouped.get(comment.category) || [];
     existing.push(comment);
     grouped.set(comment.category, existing);
@@ -595,13 +615,13 @@ export function formatReviewMarkdown(review: Review): string {
 
   const order: ReviewCategory[] = ['security', 'bug', 'performance', 'clarity'];
   for (const category of order) {
-    const comments = grouped.get(category);
-    if (!comments || comments.length === 0) continue;
+    const categoryComments = grouped.get(category);
+    if (!categoryComments || categoryComments.length === 0) continue;
 
-    lines.push(`### ${category.charAt(0).toUpperCase() + category.slice(1)} (${comments.length})`);
+    lines.push(`### ${category.charAt(0).toUpperCase() + category.slice(1)} (${categoryComments.length})`);
     lines.push('');
 
-    for (const comment of comments) {
+    for (const comment of categoryComments) {
       lines.push(`- **[${comment.severity.toUpperCase()}]** ${comment.message}`);
       if (comment.file) {
         const loc = comment.line ? `${comment.file}:${comment.line}` : comment.file;

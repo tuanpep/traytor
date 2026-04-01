@@ -8,7 +8,8 @@
     "traytor": "dist/index.js"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && node scripts/verify-build.ts",
+    "build:skip-verify": "tsup",
     "dev": "tsx src/bin/traytor.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext .ts",

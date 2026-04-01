@@ -339,6 +339,9 @@ export class ReviewGenerator {
           ...stepOptions,
           maxTokens: stepOptions.maxTokens ?? 8192,
         });
+        if (!response?.content) {
+          throw new Error('LLM returned empty content');
+        }
         return response;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
@@ -522,9 +525,10 @@ export class ReviewGenerator {
    * Generate a fix prompt for review comments.
    */
   generateFixPrompt(review: Review, commentIds?: string[]): string {
+    const safeComments = review.comments ?? [];
     const comments = commentIds
-      ? review.comments.filter((c) => commentIds.includes(c.id))
-      : review.comments;
+      ? safeComments.filter((c) => commentIds.includes(c.id))
+      : safeComments;
 
     const contextManager = new ContextManager();
     const projectContext = this.buildProjectContext(this.workingDir, contextManager);

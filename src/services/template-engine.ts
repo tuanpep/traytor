@@ -65,7 +65,21 @@ export class TemplateEngine {
   constructor(customTemplateDir?: string) {
     // Resolve built-in templates relative to this file
     const thisDir = path.dirname(fileURLToPath(import.meta.url));
-    this.builtinTemplateDir = path.resolve(thisDir, '..', 'templates');
+    // In bundled code, this file is at dist/index.js, so templates are at ./templates
+    // In source, this file is at src/services/template-engine.ts, so templates are at ../templates
+    const possibleTemplateDirs = [
+      path.resolve(thisDir, 'templates'), // For bundled code (dist/index.js -> dist/templates)
+      path.resolve(thisDir, '..', 'templates'), // For source (src/services -> src/templates)
+    ];
+
+    this.builtinTemplateDir =
+      possibleTemplateDirs.find((dir) => {
+        const exists = fs.existsSync(dir);
+        if (exists) {
+          this.logger.debug(`Using builtin template directory: ${dir}`);
+        }
+        return exists;
+      }) || possibleTemplateDirs[1]; // Default to ../templates if none exist
 
     if (customTemplateDir) {
       this.customTemplateDir = path.resolve(customTemplateDir);
@@ -96,9 +110,12 @@ export class TemplateEngine {
   // ─── Template Loading ──────────────────────────────────────────────────
 
   private loadTemplate(name: string): string {
+    const searchedPaths: string[] = [];
+
     // Try custom template directory first
     if (this.customTemplateDir) {
       const customPath = path.join(this.customTemplateDir, `${name}.hbs`);
+      searchedPaths.push(customPath);
       if (fs.existsSync(customPath)) {
         this.logger.debug(`Loading custom template: ${customPath}`);
         return fs.readFileSync(customPath, 'utf-8');
@@ -107,12 +124,26 @@ export class TemplateEngine {
 
     // Fall back to built-in templates
     const builtinPath = path.join(this.builtinTemplateDir, `${name}.hbs`);
+    searchedPaths.push(builtinPath);
     if (fs.existsSync(builtinPath)) {
       this.logger.debug(`Loading built-in template: ${builtinPath}`);
       return fs.readFileSync(builtinPath, 'utf-8');
     }
 
-    throw new Error(`Template "${name}" not found in built-in or custom template directories`);
+    // Enhanced error message with context
+    const errorMsg = [
+      `Template "${name}" not found.`,
+      '',
+      'Searched paths:',
+      ...searchedPaths.map((p) => `  - ${p}`),
+      '',
+      'Suggestions:',
+      '  - Run "traytor template list" to see available templates',
+      '  - Check that templates were included in the build (dist/templates/)',
+      '  - Verify the build completed successfully with "pnpm build"',
+    ].join('\n');
+
+    throw new Error(errorMsg);
   }
 
   // ─── Public API ────────────────────────────────────────────────────────

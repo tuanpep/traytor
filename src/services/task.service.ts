@@ -54,7 +54,6 @@ export class TaskService {
       updatedAt: now,
     };
 
-    await this.taskRepository.save(task);
     return task;
   }
 
@@ -65,22 +64,12 @@ export class TaskService {
       });
     }
 
-    try {
-      const plan = await this.planGenerator.generate(task.query, specificFiles);
-      task.status = 'in_progress';
-      task.updatedAt = new Date().toISOString();
-      await this.taskRepository.save(task);
-      return plan;
-    } catch (error) {
-      task.status = 'failed';
-      task.updatedAt = new Date().toISOString();
-      await this.taskRepository.save(task);
-
-      if (error instanceof PlanGenerationError) throw error;
-      throw new PlanGenerationError(error instanceof Error ? error.message : String(error), {
-        taskId: task.id,
-      });
-    }
+    const plan = await this.planGenerator.generate(task.query, specificFiles);
+    task.plan = plan;
+    task.status = 'completed';
+    task.updatedAt = new Date().toISOString();
+    await this.taskRepository.save(task);
+    return plan;
   }
 
   async savePlan(taskId: string, plan: Plan): Promise<void> {
@@ -109,6 +98,10 @@ export class TaskService {
 
   async deleteTask(taskId: string): Promise<boolean> {
     return this.taskRepository.delete(taskId);
+  }
+
+  async saveTask(task: Task): Promise<void> {
+    await this.taskRepository.save(task);
   }
 
   async addExecution(
@@ -141,7 +134,6 @@ export class TaskService {
       updatedAt: now,
     };
 
-    await this.taskRepository.save(task);
     return task;
   }
 
@@ -244,7 +236,6 @@ export class TaskService {
       updatedAt: now,
     };
 
-    await this.taskRepository.save(task);
     return task;
   }
 
@@ -258,22 +249,12 @@ export class TaskService {
       });
     }
 
-    try {
-      const phases = await this.phaseGenerator.generate(task.query, specificFiles, task.phases);
-      task.status = 'in_progress';
-      task.updatedAt = new Date().toISOString();
-      await this.taskRepository.save(task);
-      return phases;
-    } catch (error) {
-      task.status = 'failed';
-      task.updatedAt = new Date().toISOString();
-      await this.taskRepository.save(task);
-
-      if (error instanceof PhaseGenerationError) throw error;
-      throw new PhaseGenerationError(error instanceof Error ? error.message : String(error), {
-        taskId: task.id,
-      });
-    }
+    const phases = await this.phaseGenerator.generate(task.query, specificFiles, task.phases);
+    task.phases = phases;
+    task.status = 'completed';
+    task.updatedAt = new Date().toISOString();
+    await this.taskRepository.save(task);
+    return phases;
   }
 
   /**

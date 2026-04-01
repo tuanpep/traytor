@@ -42,7 +42,7 @@ export async function runReviewCommand(
 
   logger.info(`Starting code review for: "${query}"`);
 
-  // 1. Create a review task
+  // 1. Create a review task (in memory, not persisted yet)
   const task = await taskService.createReviewTask(query, options.cwd || process.cwd());
   logger.debug(`Review task created: ${task.id}`);
 
@@ -67,8 +67,10 @@ export async function runReviewCommand(
 
     spinner.succeed(chalk.green('Code review complete!'));
 
-    // 4. Save review to task
-    await taskService.saveReview(task.id, review);
+    // 4. Save task with review to storage
+    task.review = review;
+    task.status = 'completed';
+    await taskService.saveTask(task);
 
     // 5. Output the review
     switch (outputFormat) {
@@ -114,9 +116,11 @@ export async function runReviewCommand(
     spinner.fail(chalk.red('Code review failed'));
     if (error instanceof VerificationError) {
       console.error(chalk.red(error.message));
-      console.error(chalk.dim(`  ${error.suggestion}`));
-    } else if (error instanceof Error) {
-      console.error(chalk.red(error.message));
+      console.error(chalk.dim(`  Suggestion: ${error.suggestion}`));
+    } else {
+      console.error(
+        chalk.red(`Unexpected error: ${error instanceof Error ? error.message : String(error)}`)
+      );
     }
     throw error;
   }

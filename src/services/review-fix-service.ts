@@ -31,7 +31,7 @@ export class ReviewFixService {
     options?: { onlyBlocking?: boolean; severityFilter?: string[] }
   ): string {
     const severityOrder = ['critical', 'major', 'minor'];
-    let filteredComments = [...review.comments];
+    let filteredComments = [...(review.comments ?? [])];
 
     if (commentIds && commentIds.length > 0) {
       filteredComments = filteredComments.filter((c) => commentIds.includes(c.id));
@@ -104,7 +104,7 @@ export class ReviewFixService {
     }
   ): Promise<ReviewFixAllResult> {
     const severityOrder = ['critical', 'major', 'minor'];
-    let commentsToFix = [...review.comments];
+    let commentsToFix = [...(review.comments ?? [])];
 
     if (options?.commentIds && options.commentIds.length > 0) {
       commentsToFix = commentsToFix.filter((c) => options.commentIds!.includes(c.id));

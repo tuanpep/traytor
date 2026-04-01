@@ -3,6 +3,7 @@ import path from 'node:path';
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { initLogger, getLogger } from '../utils/logger.js';
+import { TraytorError } from '../utils/errors.js';
 import { bootstrap, type AppContext } from '../app/bootstrap.js';
 import { runPlanCommand } from '../commands/plan.js';
 import { runExecCommand } from '../commands/exec.js';
@@ -59,13 +60,16 @@ import {
 } from '../commands/epic.js';
 import { runHelpCommand } from '../commands/help.js';
 import { runTUICommand } from '../commands/tui.js';
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-const pkgVersion = require('../../package.json').version;
+import { resolveVersion } from '../utils/version.js';
+
+const pkgVersion = resolveVersion();
 
 const program = new Command();
 
-program.name('traytor').description('Personal Spec-Driven Development CLI Tool').version(pkgVersion);
+program
+  .name('traytor')
+  .description('Personal Spec-Driven Development CLI Tool')
+  .version(pkgVersion);
 
 program
   .command('hello')
@@ -695,7 +699,9 @@ program
           const { runMermaidValidate } = await import('../commands/mermaid.js');
           if (!opts.input) {
             console.error(
-              chalk.red('Input required for validate. Use: traytor mermaid validate --input "<code>"')
+              chalk.red(
+                'Input required for validate. Use: traytor mermaid validate --input "<code>"'
+              )
             );
             return;
           }
@@ -1137,13 +1143,21 @@ async function getContext(): Promise<AppContext> {
 
 function handleError(err: unknown): void {
   const logger = getLogger();
-  if (err instanceof Error) {
+  if (err instanceof TraytorError) {
     logger.error(err.message);
-    if ('suggestion' in err) {
-      console.error(`  Suggestion: ${(err as { suggestion: string }).suggestion}`);
+    console.error(chalk.red(`${err.name} [${err.code}]: ${err.message}`));
+    if (err.suggestion) {
+      console.error(chalk.dim(`  Suggestion: ${err.suggestion}`));
     }
+    if (err.details) {
+      logger.debug('Error details:', err.details);
+    }
+  } else if (err instanceof Error) {
+    logger.error(err.message);
+    console.error(chalk.red(err.message));
   } else {
     logger.error(String(err));
+    console.error(chalk.red(String(err)));
   }
   process.exit(1);
 }

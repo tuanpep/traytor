@@ -44,13 +44,10 @@ export class Verifier {
 
   constructor(
     private readonly llmService: LLMService,
-    workingDir?: string
+    private readonly workingDir: string = process.cwd()
   ) {
     this.templateEngine = new TemplateEngine();
-    this.workingDir = workingDir || process.cwd();
   }
-
-  private readonly workingDir: string;
 
   /**
    * Verify a task's implementation against its plan.
@@ -66,60 +63,73 @@ export class Verifier {
       `Verifying task ${task.id} against plan ${task.plan.id} (mode: ${options.mode || 'fresh'})`
     );
 
-    // 1. Analyze current codebase
-    const codebase = await this.analyzeCodebase();
+    try {
+      // 1. Analyze current codebase
+      const codebase = await this.analyzeCodebase();
 
-    // 2. Compare implementation against plan
-    const fileComparison = this.compareFiles(task.plan, codebase);
-    const codeChanges = this.gatherCodeChanges(task.plan, codebase);
+      // 2. Compare implementation against plan
+      const steps = task.plan.steps ?? [];
+      const fileComparison = this.compareFiles(task.plan, codebase);
+      const codeChanges = this.gatherCodeChanges(task.plan, codebase);
 
-    // 3. Build verification prompt
-    const verificationData: VerificationPromptData = {
-      planId: task.plan.id,
-      query: task.query,
-      steps: task.plan.steps.map((step) => ({
-        title: step.title,
-        description: step.description,
-        files: step.files,
-      })),
-      codeChanges,
-    };
-
-    // 4. Handle re-verify mode
-    if (options.mode === 'reverify' && task.verification) {
-      const openComments = task.verification.comments.filter((c) => c.status === 'open');
-      if (openComments.length > 0) {
-        verificationData.previousComments = openComments.map((c) => ({
-          id: c.id,
-          status: c.status,
-          file: c.file,
-          category: c.category,
-          message: c.message,
-          suggestion: c.suggestion,
-        }));
-        this.logger.info(`Re-verifying with ${openComments.length} open comments`);
+      if (fileComparison.missing.length === 0 && fileComparison.present.length === 0 && fileComparison.created.length === 0) {
+        this.logger.warn('File comparison returned empty results, continuing with empty code changes');
       }
+
+      // 3. Build verification prompt
+      const verificationData: VerificationPromptData = {
+        planId: task.plan.id,
+        query: task.query,
+        steps: steps.map((step) => ({
+          title: step.title,
+          description: step.description,
+          files: step.files,
+        })),
+        codeChanges,
+      };
+
+      // 4. Handle re-verify mode
+      if (options.mode === 'reverify' && task.verification) {
+        const openComments = task.verification.comments.filter((c) => c.status === 'open');
+        if (openComments.length > 0) {
+          verificationData.previousComments = openComments.map((c) => ({
+            id: c.id,
+            status: c.status,
+            file: c.file,
+            category: c.category,
+            message: c.message,
+            suggestion: c.suggestion,
+          }));
+          this.logger.info(`Re-verifying with ${openComments.length} open comments`);
+        }
+      }
+
+      const prompt = this.templateEngine.renderVerificationTemplate(verificationData);
+
+      // 5. Call LLM for verification analysis
+      const maxRetries = options.maxRetries ?? 3;
+      const llmResponse = await this.callLLMWithRetry(prompt, maxRetries);
+
+      // 6. Parse verification comments
+      const comments = this.parseVerificationResponse(llmResponse.content);
+
+      // 7. Build summary
+      const summary = this.buildSummary(comments, fileComparison);
+
+      return {
+        id: createVerificationId(),
+        taskId: task.id,
+        timestamp: new Date().toISOString(),
+        comments,
+        summary,
+      };
+    } catch (error) {
+      if (error instanceof VerificationError) throw error;
+      throw new VerificationError(
+        `Unexpected error during verification: ${error instanceof Error ? error.message : String(error)}`,
+        { taskId: task.id, originalError: error }
+      );
     }
-
-    const prompt = this.templateEngine.renderVerificationTemplate(verificationData);
-
-    // 5. Call LLM for verification analysis
-    const maxRetries = options.maxRetries ?? 3;
-    const llmResponse = await this.callLLMWithRetry(prompt, maxRetries);
-
-    // 6. Parse verification comments
-    const comments = this.parseVerificationResponse(llmResponse.content);
-
-    // 7. Build summary
-    const summary = this.buildSummary(comments, fileComparison);
-
-    return {
-      id: createVerificationId(),
-      taskId: task.id,
-      timestamp: new Date().toISOString(),
-      comments,
-      summary,
-    };
   }
 
   /**
@@ -183,8 +193,23 @@ export class Verifier {
    * Analyze the current codebase state.
    */
   private async analyzeCodebase(): Promise<Codebase> {
-    const analyzer = new FileAnalyzer(this.workingDir);
-    return analyzer.analyze();
+    try {
+      const analyzer = new FileAnalyzer(this.workingDir);
+      return await analyzer.analyze();
+    } catch (error) {
+      if (error instanceof VerificationError) throw error;
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' || code === 'EACCES') {
+        throw new VerificationError(
+          `Cannot access working directory: ${this.workingDir}`,
+          { workingDir: this.workingDir, originalError: error }
+        );
+      }
+      throw new VerificationError(
+        `Failed to analyze codebase: ${error instanceof Error ? error.message : String(error)}`,
+        { workingDir: this.workingDir, originalError: error }
+      );
+    }
   }
 
   /**

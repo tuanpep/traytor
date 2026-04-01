@@ -264,6 +264,11 @@ export class ConfigLoader {
 
     merged = await applySecureStorageOverrides(merged);
 
+    // Expand tilde in dataDir
+    if (merged.dataDir && merged.dataDir.startsWith('~')) {
+      merged.dataDir = merged.dataDir.replace(/^~/, os.homedir());
+    }
+
     const parsed = ConfigSchema.safeParse(merged);
     if (!parsed.success) {
       const errors = parsed.error.issues

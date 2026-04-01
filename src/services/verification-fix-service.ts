@@ -30,10 +30,11 @@ export class VerificationFixService {
     task: Task,
     options?: { includePlan?: boolean; onlyBlocking?: boolean; severityFilter?: string[] }
   ): string {
+    const safeComments = comments?.filter((c) => c != null) ?? [];
     const blockingCategories = options?.severityFilter ?? ['critical', 'major'];
     const filteredComments = options?.onlyBlocking
-      ? comments.filter((c) => blockingCategories.includes(c.category))
-      : comments;
+      ? safeComments.filter((c) => blockingCategories.includes(c.category))
+      : safeComments;
 
     if (filteredComments.length === 0) {
       return 'No comments to fix.';
@@ -94,6 +95,14 @@ export class VerificationFixService {
     task: Task,
     agentName?: string
   ): Promise<FixCommentResult> {
+    if (!comment) {
+      return {
+        commentId: 'unknown',
+        success: false,
+        message: 'Comment is null or undefined',
+      };
+    }
+
     this.logger.info(`Fixing comment ${comment.id}`);
 
     try {

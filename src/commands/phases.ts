@@ -29,7 +29,7 @@ export async function runPhasesCommand(
 
   logger.info(`Starting phase generation for: "${query}"`);
 
-  // 1. Create phases task
+  // 1. Create phases task (in memory, not persisted yet)
   const task = await taskService.createPhasesTask(query, process.cwd());
   logger.debug(`Task created: ${task.id}`);
 
@@ -41,10 +41,7 @@ export async function runPhasesCommand(
 
     spinner.succeed(chalk.green(`Generated ${phases.length} phases!`));
 
-    // 3. Save phases to storage
-    await taskService.savePhases(task.id, phases);
-
-    // 4. Output the phases
+    // 3. Output the phases
     const outputFormat = options.output ?? 'terminal';
 
     switch (outputFormat) {
