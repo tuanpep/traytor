@@ -1,21 +1,13 @@
-# SDD - Spec Driven Development CLI
+# Traytor — Spec-Driven Development CLI
 
-A personal spec-driven development CLI tool that leverages AI (Anthropic Claude, OpenAI) to generate implementation plans, execute tasks with AI agents, verify code against plans, and manage multi-phase projects through epics and workflows.
+A spec-driven development CLI tool that leverages AI (Anthropic Claude, OpenAI) to generate implementation plans, execute tasks with AI agents, verify code against plans, and manage multi-phase projects through epics and workflows.
 
 ## Installation
 
 ```bash
-# Clone the repository
-git clone <repo-url> && cd traytor
-
-# Install dependencies
-pnpm install
-
-# Build the project
-pnpm build
-
-# Link globally for the `sdd` command
-npm link
+npm install -g traytor
+# or
+pnpm add -g traytor
 ```
 
 ## Quick Start
@@ -30,111 +22,121 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 
 # Or OpenAI
 export OPENAI_API_KEY="sk-..."
-export SDD_PROVIDER="openai"
+export TRAYTOR_PROVIDER="openai"
 ```
 
-Or create a config file at `~/.sdd-tool/config.yaml`:
+Or use the config command:
 
-```yaml
-provider: anthropic
-anthropic:
-  model: claude-sonnet-4-20250514
-  maxTokens: 4096
-  temperature: 0
+```bash
+traytor config set-key anthropic sk-ant-...
 ```
 
 ### 2. Generate a Plan
 
 ```bash
-sdd plan "Implement user authentication with JWT"
+traytor plan "Implement user authentication with JWT"
 ```
 
 ### 3. Execute the Plan
 
 ```bash
-sdd exec <task-id>
+traytor exec <task-id>
 ```
 
 ### 4. Verify the Implementation
 
 ```bash
-sdd verify <task-id>
+traytor verify <task-id>
 ```
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `sdd plan <query>` | Generate an implementation plan for a task |
-| `sdd phases <query>` | Break a complex task into sequential phases |
-| `sdd exec <task-id>` | Execute a task with an AI agent |
-| `sdd verify <task-id>` | Verify a task implementation against its plan |
-| `sdd review <query>` | Run an agentic code review |
-| `sdd epic <query>` | Start an epic with AI elicitation |
-| `sdd workflow <sub>` | Manage workflows (list, show, create, state, advance, pause, resume) |
-| `sdd git <sub>` | Git operations (status, diff, commit) |
-| `sdd agent <sub>` | Manage custom CLI agents |
-| `sdd template <sub>` | Manage prompt templates |
-| `sdd history` | View task history |
-| `sdd help <command>` | Show detailed help for a command |
+| Command                                | Description                                                          |
+| -------------------------------------- | -------------------------------------------------------------------- |
+| `traytor plan <query>`                 | Generate an implementation plan for a task                           |
+| `traytor exec <task-id>`               | Execute a task with an AI agent                                      |
+| `traytor verify <task-id>`             | Verify a task implementation against its plan                        |
+| `traytor review [query]`               | Run an agentic code review                                           |
+| `traytor phases <query>`               | Break a complex task into sequential phases                          |
+| `traytor phases:list <id>`             | List all phases for a task                                           |
+| `traytor phases:add <id>`              | Add a new phase                                                      |
+| `traytor phases:reorder <id> <ids...>` | Reorder phases                                                       |
+| `traytor phases:delete <id> <order>`   | Delete a phase                                                       |
+| `traytor yolo <task-id>`               | Run automated phase execution                                        |
+| `traytor epic <query>`                 | Start an epic with AI elicitation                                    |
+| `traytor workflow <sub>`               | Manage workflows (list, show, create, state, advance, pause, resume) |
+| `traytor git <sub>`                    | Git operations (status, diff, commit)                                |
+| `traytor agent <sub>`                  | Manage custom CLI agents (list, add, remove, set-default)            |
+| `traytor template <sub>`               | Manage prompt templates (list, show, create, edit)                   |
+| `traytor history`                      | View task history                                                    |
+| `traytor tui`                          | Open interactive Terminal UI dashboard                               |
+| `traytor mermaid <sub>`                | Generate Mermaid diagrams from tasks/plans/phases                    |
+| `traytor ticket-assist`                | GitHub issue integration                                             |
+| `traytor model-profile <sub>`          | Manage model profiles                                                |
+| `traytor config <sub>`                 | Manage configuration and API keys                                    |
+| `traytor usage [id]`                   | Show token usage statistics                                          |
+| `traytor help [command]`               | Show detailed help for a command                                     |
 
 ## Usage Examples
 
-### Example 1: Plan, Execute, Verify Workflow
+### Plan, Execute, Verify Workflow
 
 ```bash
 # Generate a plan for a feature
-sdd plan "Add pagination to the user list API endpoint"
+traytor plan "Add pagination to the user list API endpoint"
 
 # Execute the generated plan
-sdd exec task_abc123
+traytor exec task_abc123
 
 # Verify the implementation matches the plan
-sdd verify task_abc123
+traytor verify task_abc123
 ```
 
-### Example 2: Multi-Phase Development
+### Multi-Phase Development
 
 ```bash
 # Break a complex feature into phases
-sdd phases "Build a complete CRUD REST API with auth, validation, and tests"
+traytor phases "Build a complete CRUD REST API with auth, validation, and tests"
 
-# Execute specific phases
-sdd exec task_def456 --phase 1
-sdd exec task_def456 --phase 2
+# Execute all phases automatically with YOLO mode
+traytor yolo task_def456 --auto-commit
 
-# Verify individual phases
-sdd verify task_def456 --phase 1
+# Or execute specific phases
+traytor exec task_def456 --phase 1
+traytor exec task_def456 --phase 2
 ```
 
-### Example 3: Epic Management with Specs and Tickets
+### Epic Management with Specs and Tickets
 
 ```bash
 # Start an epic with AI-guided elicitation
-sdd epic "Build an e-commerce platform"
+traytor epic "Build an e-commerce platform"
 
 # List specs for the epic
-sdd epic --task-id epic_001 --spec list
+traytor epic --task-id epic_001 --spec list
 
 # Create a ticket
-sdd epic --task-id epic_001 --ticket create \
+traytor epic --task-id epic_001 --ticket create \
   --ticket-title "User registration flow" \
   --ticket-description "Implement signup, login, and password reset"
 
 # Update ticket status
-sdd epic --task-id epic_001 --ticket status \
+traytor epic --task-id epic_001 --ticket status \
   --ticket-id ticket_001 \
   --ticket-status in_progress
 ```
 
-### Example 4: Code Review
+### Code Review
 
 ```bash
 # Review current changes against main
-sdd review "Focus on security and error handling" --against main
+traytor review "Focus on security and error handling" --against main
 
 # Review specific files
-sdd review "Check for performance issues" --files src/api/*.ts src/db/*.ts
+traytor review "Check for performance issues" -f src/api/*.ts src/db/*.ts
+
+# Fix code based on review comments
+traytor review --fix --task-id task_123
 ```
 
 ## Configuration
@@ -142,19 +144,19 @@ sdd review "Check for performance issues" --files src/api/*.ts src/db/*.ts
 Configuration is loaded in order (later overrides earlier):
 
 1. Built-in defaults
-2. `~/.sdd-tool/config.yaml` (user config)
-3. `.sdd-tool/config.yaml` (project config)
+2. `~/.traytor/config.yaml` (user config)
+3. `.traytor/config.yaml` (project config)
 4. Environment variables
 
 ### Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `ANTHROPIC_API_KEY` | Anthropic API key |
-| `OPENAI_API_KEY` | OpenAI API key |
-| `SDD_PROVIDER` | Default LLM provider (`anthropic` or `openai`) |
-| `SDD_LOG_LEVEL` | Log level (`debug`, `info`, `warn`, `error`, `silent`) |
-| `SDD_DATA_DIR` | Data directory path |
+| Variable            | Description                                            |
+| ------------------- | ------------------------------------------------------ |
+| `ANTHROPIC_API_KEY` | Anthropic API key                                      |
+| `OPENAI_API_KEY`    | OpenAI API key                                         |
+| `TRAYTOR_PROVIDER`  | Default LLM provider (`anthropic` or `openai`)         |
+| `TRAYTOR_LOG_LEVEL` | Log level (`debug`, `info`, `warn`, `error`, `silent`) |
+| `TRAYTOR_DATA_DIR`  | Data directory path                                    |
 
 ### Model Profiles
 
@@ -178,14 +180,14 @@ modelProfiles:
 
 A companion VS Code extension provides IDE integration:
 
-- **Command Palette**: `SDD: Create Plan`, `SDD: Execute Task`, `SDD: Verify Task`
+- **Command Palette**: `Traytor: Create Plan`, `Traytor: Execute Task`, `Traytor: Verify Task`
 - **Sidebar**: Task list with real-time status updates
 - **Output Channel**: Execution logs
 
 Install from the `extension/` directory:
 
 ```bash
-cd extension && npm install && npm run build
+cd extension && pnpm install && pnpm build
 ```
 
 Then in VS Code: `Extensions > ... > Install from VSIX` or launch in Extension Development Host.
@@ -200,6 +202,28 @@ The project follows a layered architecture:
 - **Integration Layer** (`src/integrations/`): LLM providers (Anthropic, OpenAI), MCP
 - **Data Layer** (`src/data/`): Repositories, storage, validation
 - **Utils** (`src/utils/`): Logger, errors, platform utilities, secure storage
+
+## Development
+
+```bash
+# Install dependencies
+pnpm install
+
+# Build
+pnpm build
+
+# Run in dev mode
+pnpm dev
+
+# Run tests
+pnpm test
+
+# Type check
+pnpm typecheck
+
+# Lint
+pnpm lint
+```
 
 ## License
 
